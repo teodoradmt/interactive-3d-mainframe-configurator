@@ -19,8 +19,8 @@ export function SummaryPanel({
       ) : (
         <>
           <Metric label="Цена" value={currency.format(totals.total)} />
-          <Metric label="CPU капацитет" value={`${number.format(totals.cpu)} MIPS`} />
-          <Metric label="GPU/accelerator" value={`${number.format(totals.accelerator)} AI units`} />
+          <Metric label="IBM Z капацитет" value={`${number.format(totals.cpu)} demo units`} />
+          <Metric label="AI профил" value={`${number.format(totals.accelerator)} AI score`} />
           <Metric label="RAM" value={`${number.format(totals.ram)} GB`} />
           <Metric label="Storage" value={`${number.format(totals.storage)} TB`} />
           <Metric label="Електроенергия" value={`${totals.kw.toFixed(1)} kW`} icon={<Zap size={16} />} />

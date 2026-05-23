@@ -10,7 +10,7 @@ function formatSelectedModules(modules, selection) {
         return null;
       }
 
-      return `- ${module.title}: ${option.name}, цена ${option.price} EUR, консумация ${option.watts} kW`;
+      return `- ${module.title}: ${option.name}, ${option.spec ?? 'няма описание'}, цена ${option.price} EUR, консумация ${option.watts} kW`;
     })
     .filter(Boolean)
     .join('\n');
@@ -22,12 +22,13 @@ function formatModuleCatalog(modules) {
       const options = module.options
         .map((option, index) => {
           const specs = [
-            option.cpu ? `${option.cpu} MIPS` : null,
+            option.spec,
+            option.cpu ? `${option.cpu} demo capacity units` : null,
             option.ram ? `${option.ram} GB RAM` : null,
             option.storage ? `${option.storage} TB` : null,
-            option.io ? `${option.io} GbE` : null,
-            option.security ? `security ${option.security}` : null,
-            option.cooling ? `cooling ${option.cooling}` : null,
+            option.io ? `${option.io} GbE class` : null,
+            option.security ? `security level ${option.security}` : null,
+            option.cooling ? `cooling level ${option.cooling}` : null,
             `${option.price} EUR`,
           ]
             .filter(Boolean)
@@ -54,9 +55,10 @@ function formatChatMessages(messages = []) {
 
 function buildRecommendationPrompt({ estimate, modules, selection }) {
   return `
-Ти си AI асистент за конфигуриране на mainframe инфраструктура.
+Ти си AI асистент за конфигуриране на IBM Z mainframe инфраструктура.
 Отговори на български, кратко и практично.
-Не измисляй нови цени или компоненти извън дадените данни.
+Използвай само дадените модули, описания и цени.
+Числата за IBM Z капацитет са demo units за сравнение в приложението, не официални MIPS.
 Отговори с максимум 90 думи, без въведение.
 
 Избрани компоненти:
@@ -64,8 +66,8 @@ ${formatSelectedModules(modules, selection)}
 
 Изчислена оценка:
 - Обща цена: ${estimate.total} EUR
-- CPU: ${estimate.cpu} MIPS
-- Accelerator: ${estimate.accelerator} AI units
+- IBM Z капацитет: ${estimate.cpu} demo units
+- AI профил: ${estimate.accelerator} AI score
 - RAM: ${estimate.ram} GB
 - Storage: ${estimate.storage} TB
 - Електроенергия: ${estimate.kw.toFixed(1)} kW
@@ -86,8 +88,8 @@ function buildChatPrompt({ estimate, messages, modules, selection }) {
   const estimateText = estimate
     ? `
 - Обща цена: ${estimate.total} EUR
-- CPU: ${estimate.cpu} MIPS
-- Accelerator: ${estimate.accelerator} AI units
+- IBM Z капацитет: ${estimate.cpu} demo units
+- AI профил: ${estimate.accelerator} AI score
 - RAM: ${estimate.ram} GB
 - Storage: ${estimate.storage} TB
 - Електроенергия: ${estimate.kw.toFixed(1)} kW
@@ -98,9 +100,10 @@ function buildChatPrompt({ estimate, messages, modules, selection }) {
     : 'Няма изчислена оценка за текуща селекция.';
 
   return `
-Ти си Mainframe4o - локален AI консултант за избор на mainframe конфигурация.
+Ти си Mainframe4o - локален AI консултант за избор на IBM Z mainframe конфигурация.
 Отговаряй на български, ясно и практично.
 Използвай само модулите и цените от каталога. Не измисляй компоненти.
+Числата за IBM Z капацитет са demo units за сравнение в приложението, не официални MIPS.
 Ако потребителят даде бюджет, препоръчай конфигурация, която е под или близо до бюджета.
 Ако липсва важна информация, задай 1-2 уточняващи въпроса.
 Когато препоръчваш конфигурация, използвай този кратък формат:

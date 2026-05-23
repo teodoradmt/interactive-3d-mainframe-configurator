@@ -27,11 +27,13 @@ This keeps business data, API communication, React state, UI controls, and Three
 - Blender/glTF workflow - exported `.glb` files can be registered in `frontend/src/config/blenderAssets.js`.
 - Ollama - local AI runtime used by the backend through `http://127.0.0.1:11434`.
 - Mistral - local language model used for AI configuration analysis.
+- IBM Z reference data - module labels are modeled around IBM z15, z16, z17, Telum, Telum II, RAIM, FICON, OSA-Express, Crypto Express, and quantum-safe security concepts.
 
 ## Current behavior
 
 - The configuration starts empty, so the mainframe door is open.
 - Each module has three visible choices instead of a dropdown.
+- The first configuration dimension compares IBM z15, IBM z16, and IBM z17 style generations; prices remain project demo values.
 - When one option is selected for every module, the frontend asks the backend for the estimate.
 - The mainframe door then closes automatically to visualize a completed configuration.
 - When a configuration is complete, the user can request a local Mistral analysis through `/api/ai-recommendation`.

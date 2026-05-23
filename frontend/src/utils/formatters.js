@@ -7,8 +7,12 @@ export const currency = new Intl.NumberFormat('bg-BG', {
 export const number = new Intl.NumberFormat('bg-BG');
 
 export function formatOptionSpec(option) {
+  if (option.spec) {
+    return option.spec;
+  }
+
   if (option.cpu) {
-    return `${number.format(option.cpu)} MIPS`;
+    return `${number.format(option.cpu)} capacity units`;
   }
 
   if (option.ram) {
