@@ -1,8 +1,10 @@
-import { Suspense, useMemo, useRef } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { ContactShadows, Environment, Html, OrbitControls, useGLTF } from '@react-three/drei';
-import { MathUtils } from 'three';
+import { MathUtils, Vector3 } from 'three';
 import { blenderAssets } from '../config/blenderAssets.js';
+
+const LABEL_FRONT_VIEW_THRESHOLD = 0.52;
 
 function ImportedGlbObject({ asset }) {
   const { scene } = useGLTF(asset.path);
@@ -24,40 +26,77 @@ function BlenderAssetSlots() {
 
 function RackRail({ x }) {
   return (
-    <group position={[x, 0.55, 0.63]}>
+    <group position={[x, 0.22, 0.72]}>
       <mesh castShadow>
-        <boxGeometry args={[0.08, 3.62, 0.08]} />
-        <meshStandardMaterial color="#20262d" roughness={0.44} metalness={0.76} />
+        <boxGeometry args={[0.075, 4.62, 0.085]} />
+        <meshStandardMaterial color="#15191f" roughness={0.42} metalness={0.78} />
       </mesh>
-      {Array.from({ length: 14 }).map((_, index) => (
-        <mesh key={index} position={[0, 1.58 - index * 0.24, 0.06]} castShadow>
-          <boxGeometry args={[0.095, 0.045, 0.025]} />
-          <meshStandardMaterial color="#77818c" roughness={0.32} metalness={0.72} />
+      {Array.from({ length: 19 }).map((_, index) => (
+        <mesh key={index} position={[0, 2.1 - index * 0.23, 0.064]} castShadow>
+          <boxGeometry args={[0.1, 0.032, 0.028]} />
+          <meshStandardMaterial color="#7f8995" roughness={0.3} metalness={0.82} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function VentStack({ x }) {
+function SideVentPattern() {
   return (
-    <group position={[x, -1.42, 0.68]}>
-      {Array.from({ length: 7 }).map((_, index) => (
-        <mesh key={index} position={[0, index * 0.07, 0]} castShadow>
-          <boxGeometry args={[1.6, 0.025, 0.04]} />
-          <meshStandardMaterial color="#050607" roughness={0.62} metalness={0.35} />
+    <group position={[1.68, 0.1, -0.05]} rotation={[0, Math.PI / 2, 0]}>
+      {Array.from({ length: 12 }).map((_, index) => (
+        <mesh key={index} position={[-0.12 + (index % 3) * 0.16, -1.75 + Math.floor(index / 3) * 0.52, 0.02]} castShadow>
+          <boxGeometry args={[0.055, 0.38, 0.035]} />
+          <meshStandardMaterial color="#07090c" roughness={0.62} metalness={0.44} />
         </mesh>
+      ))}
+      <mesh position={[0.12, 0.18, 0.025]} rotation={[0, 0, -0.55]} castShadow>
+        <boxGeometry args={[0.075, 1.6, 0.04]} />
+        <meshStandardMaterial color="#07090c" roughness={0.62} metalness={0.44} />
+      </mesh>
+    </group>
+  );
+}
+
+function RackSlotStack() {
+  const yPositions = [1.72, 1.08, 0.44, -0.2, -0.84, -1.48];
+
+  return (
+    <group>
+      {yPositions.map((y, index) => (
+        <group key={y} position={[0, y, 0.72]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[2.62, 0.48, 0.12]} />
+            <meshStandardMaterial color={index % 2 === 0 ? '#1a2027' : '#151a21'} roughness={0.46} metalness={0.62} />
+          </mesh>
+          <mesh position={[0, 0.16, 0.08]} castShadow>
+            <boxGeometry args={[2.35, 0.025, 0.035]} />
+            <meshStandardMaterial color="#343c46" roughness={0.35} metalness={0.74} />
+          </mesh>
+          <mesh position={[-1.12, -0.12, 0.09]} castShadow>
+            <sphereGeometry args={[0.035, 14, 8]} />
+            <meshStandardMaterial color="#58626e" emissive="#10141a" emissiveIntensity={0.08} />
+          </mesh>
+          <mesh position={[1.12, -0.12, 0.09]} castShadow>
+            <boxGeometry args={[0.14, 0.04, 0.045]} />
+            <meshStandardMaterial color="#727d88" roughness={0.28} metalness={0.84} />
+          </mesh>
+        </group>
       ))}
     </group>
   );
 }
 
-function ModuleTray({ module, activeModule, selection, setActiveModule }) {
+function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selection, setActiveModule }) {
   const selectedIndex = selection[module.id];
   const isConfigured = selectedIndex !== undefined;
   const isActive = activeModule === module.id;
+  const isVisuallyActive = isActive && !isDoorClosed;
   const selectedOption = isConfigured ? module.options[selectedIndex] : null;
-  const z = isActive ? 0.74 : 0.66;
+  const z = isDoorClosed ? 0.56 : isVisuallyActive ? 0.9 : 0.78;
+  const trayGlow = isDoorClosed ? 0.01 : isVisuallyActive ? 0.22 : isConfigured ? 0.08 : 0.02;
+  const stripGlow = isDoorClosed ? 0.03 : isConfigured ? 0.62 : 0.15;
+  const indicatorGlow = isDoorClosed ? 0.03 : isConfigured ? 0.72 : 0.08;
 
   return (
     <group>
@@ -66,41 +105,71 @@ function ModuleTray({ module, activeModule, selection, setActiveModule }) {
         castShadow
         onClick={(event) => {
           event.stopPropagation();
+          if (isDoorClosed) {
+            return;
+          }
+
           setActiveModule(module.id);
         }}
       >
         <boxGeometry args={module.size} />
         <meshStandardMaterial
-          color={isConfigured ? module.color : '#39424d'}
-          emissive={isConfigured ? module.color : '#111820'}
-          emissiveIntensity={isActive ? 0.36 : isConfigured ? 0.14 : 0.02}
-          roughness={0.34}
-          metalness={0.52}
+          color={isConfigured ? '#2a333c' : '#1c2229'}
+          emissive={isConfigured ? module.color : '#05070a'}
+          emissiveIntensity={trayGlow}
+          roughness={0.33}
+          metalness={0.68}
         />
       </mesh>
 
-      <mesh position={[module.position[0], module.position[1], z + 0.12]} castShadow>
-        <boxGeometry args={[module.size[0] - 0.18, 0.035, 0.04]} />
-        <meshStandardMaterial color="#111418" roughness={0.48} metalness={0.68} />
+      <mesh position={[module.position[0], module.position[1] + module.size[1] * 0.36, z + 0.12]} castShadow>
+        <boxGeometry args={[module.size[0] - 0.2, 0.035, 0.035]} />
+        <meshStandardMaterial color={module.color} emissive={module.color} emissiveIntensity={stripGlow} />
       </mesh>
 
-      <mesh position={[module.position[0] - module.size[0] * 0.42, module.position[1] - 0.18, z + 0.13]} castShadow>
+      <mesh position={[module.position[0] - module.size[0] * 0.43, module.position[1] - 0.09, z + 0.125]} castShadow>
         <sphereGeometry args={[0.045, 18, 10]} />
         <meshStandardMaterial
-          color={isConfigured ? '#72f2b4' : '#7b8794'}
+          color={isConfigured ? '#7df1b4' : '#75808a'}
           emissive={isConfigured ? '#2fd684' : '#111827'}
-          emissiveIntensity={isConfigured ? 0.72 : 0.08}
+          emissiveIntensity={indicatorGlow}
         />
       </mesh>
 
-      <mesh position={[module.position[0] + module.size[0] * 0.39, module.position[1] - 0.18, z + 0.13]} castShadow>
-        <boxGeometry args={[0.18, 0.05, 0.05]} />
+      <mesh position={[module.position[0] + module.size[0] * 0.42, module.position[1] - 0.09, z + 0.13]} castShadow>
+        <boxGeometry args={[0.18, 0.052, 0.052]} />
         <meshStandardMaterial color="#9aa4af" roughness={0.28} metalness={0.82} />
       </mesh>
 
-      <Html center distanceFactor={8} position={[module.position[0], module.position[1] + 0.01, z + 0.18]} className="module-label">
-        {selectedOption ? selectedOption.name : module.short}
-      </Html>
+      <mesh position={[module.position[0], module.position[1] - module.size[1] * 0.33, z + 0.13]} castShadow>
+        <boxGeometry args={[module.size[0] - 0.34, 0.025, 0.035]} />
+        <meshStandardMaterial color="#06080a" roughness={0.56} metalness={0.36} />
+      </mesh>
+
+      {!isDoorClosed && canShowLabel && (
+        <Html center distanceFactor={8} position={[module.position[0], module.position[1] + 0.005, z + 0.18]} className="module-label">
+          {selectedOption ? selectedOption.name : module.short}
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function DoorPanelSegment({ y }) {
+  return (
+    <group position={[1.55, y, 0.03]}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[2.86, 0.82, 0.08]} />
+        <meshStandardMaterial color="#171a21" roughness={0.38} metalness={0.78} />
+      </mesh>
+      <mesh position={[-0.46, 0.12, 0.055]} rotation={[0, 0, -0.42]} castShadow>
+        <boxGeometry args={[1.12, 0.055, 0.045]} />
+        <meshStandardMaterial color="#26282d" roughness={0.34} metalness={0.74} />
+      </mesh>
+      <mesh position={[0.34, -0.13, 0.06]} rotation={[0, 0, 0.5]} castShadow>
+        <boxGeometry args={[1.02, 0.052, 0.045]} />
+        <meshStandardMaterial color="#111216" roughness={0.42} metalness={0.72} />
+      </mesh>
     </group>
   );
 }
@@ -113,50 +182,49 @@ function CabinetDoor({ isDoorClosed }) {
       return;
     }
 
-    const targetAngle = isDoorClosed ? 0 : -1.18;
+    const targetAngle = isDoorClosed ? 0 : -1.12;
     doorRef.current.rotation.y = MathUtils.damp(doorRef.current.rotation.y, targetAngle, 5.2, delta);
   });
 
   return (
-    <group position={[-2.18, 0.52, 0.76]}>
-      <mesh position={[0, 0, -0.01]} castShadow>
-        <cylinderGeometry args={[0.045, 0.045, 4.16, 22]} />
-        <meshStandardMaterial color="#767f8b" roughness={0.34} metalness={0.84} />
+    <group position={[-1.58, 0.24, 0.88]}>
+      <mesh position={[0, 0, -0.02]} castShadow>
+        <cylinderGeometry args={[0.038, 0.038, 5.28, 22]} />
+        <meshStandardMaterial color="#0b0e13" roughness={0.34} metalness={0.9} />
       </mesh>
 
-      <group ref={doorRef} rotation={[0, isDoorClosed ? 0 : -1.18, 0]}>
-        <mesh position={[2.18, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[4.36, 4.06, 0.07]} />
-          <meshStandardMaterial
-            color="#97acbd"
-            opacity={0.22}
-            transparent
-            roughness={0.16}
-            metalness={0.18}
-            depthWrite={false}
-          />
+      <group ref={doorRef} rotation={[0, isDoorClosed ? 0 : -1.12, 0]}>
+        <mesh position={[1.58, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[3.16, 5.24, 0.1]} />
+          <meshStandardMaterial color="#111216" roughness={0.36} metalness={0.82} />
         </mesh>
-
-        <mesh position={[2.18, 2.03, 0.03]} castShadow>
-          <boxGeometry args={[4.42, 0.11, 0.13]} />
-          <meshStandardMaterial color="#252b32" roughness={0.4} metalness={0.72} />
+        <mesh position={[1.58, 0, -0.075]} castShadow receiveShadow>
+          <boxGeometry args={[2.92, 4.92, 0.035]} />
+          <meshStandardMaterial color="#07090d" roughness={0.45} metalness={0.62} />
         </mesh>
-        <mesh position={[2.18, -2.03, 0.03]} castShadow>
-          <boxGeometry args={[4.42, 0.11, 0.13]} />
-          <meshStandardMaterial color="#252b32" roughness={0.4} metalness={0.72} />
+        <mesh position={[1.58, 0.02, -0.105]} rotation={[0, 0, -0.45]} castShadow>
+          <boxGeometry args={[2.35, 0.055, 0.035]} />
+          <meshStandardMaterial color="#1a1c20" roughness={0.44} metalness={0.68} />
         </mesh>
-        <mesh position={[0.04, 0, 0.03]} castShadow>
-          <boxGeometry args={[0.11, 4.1, 0.13]} />
-          <meshStandardMaterial color="#252b32" roughness={0.4} metalness={0.72} />
+        <DoorPanelSegment y={1.92} />
+        <DoorPanelSegment y={0.88} />
+        <DoorPanelSegment y={-0.16} />
+        <DoorPanelSegment y={-1.2} />
+        <mesh position={[1.58, 2.62, 0.07]} castShadow>
+          <boxGeometry args={[3.24, 0.12, 0.16]} />
+          <meshStandardMaterial color="#202126" roughness={0.34} metalness={0.78} />
         </mesh>
-        <mesh position={[4.32, 0, 0.03]} castShadow>
-          <boxGeometry args={[0.11, 4.1, 0.13]} />
-          <meshStandardMaterial color="#252b32" roughness={0.4} metalness={0.72} />
+        <mesh position={[1.58, -2.62, 0.07]} castShadow>
+          <boxGeometry args={[3.24, 0.12, 0.16]} />
+          <meshStandardMaterial color="#202126" roughness={0.34} metalness={0.78} />
         </mesh>
-
-        <mesh position={[4.02, 0, 0.12]} castShadow>
-          <boxGeometry args={[0.11, 0.86, 0.09]} />
-          <meshStandardMaterial color="#c4cad1" roughness={0.24} metalness={0.88} />
+        <mesh position={[3.03, 0, 0.1]} castShadow>
+          <boxGeometry args={[0.08, 4.6, 0.12]} />
+          <meshStandardMaterial color="#0a0d12" roughness={0.35} metalness={0.84} />
+        </mesh>
+        <mesh position={[2.86, 0.12, 0.19]} castShadow>
+          <boxGeometry args={[0.08, 0.78, 0.07]} />
+          <meshStandardMaterial color="#555f6b" roughness={0.24} metalness={0.88} />
         </mesh>
       </group>
     </group>
@@ -164,29 +232,52 @@ function CabinetDoor({ isDoorClosed }) {
 }
 
 function ProceduralMainframe({ activeModule, modules, selection, setActiveModule, isDoorClosed }) {
+  const mainframeRef = useRef(null);
+  const cameraPosition = useMemo(() => new Vector3(), []);
+  const [isFrontView, setIsFrontView] = useState(true);
+
+  useFrame(({ camera }) => {
+    if (!mainframeRef.current) {
+      return;
+    }
+
+    cameraPosition.copy(camera.position);
+    mainframeRef.current.worldToLocal(cameraPosition);
+
+    const horizontalDistance = Math.hypot(cameraPosition.x, cameraPosition.z);
+    const frontScore = horizontalDistance > 0 ? cameraPosition.z / horizontalDistance : 0;
+    const nextIsFrontView = frontScore > LABEL_FRONT_VIEW_THRESHOLD;
+
+    setIsFrontView((current) => (current === nextIsFrontView ? current : nextIsFrontView));
+  });
+
   return (
-    <group rotation={[0, -0.28, 0]}>
-      <mesh position={[0, 0.52, -0.11]} castShadow receiveShadow>
-        <boxGeometry args={[4.72, 4.45, 1.12]} />
-        <meshStandardMaterial color="#14191f" roughness={0.58} metalness={0.62} />
+    <group ref={mainframeRef} position={[0, -0.1, 0]} rotation={[0, -0.36, 0]} scale={0.86}>
+      <mesh position={[0, 0.24, -0.18]} castShadow receiveShadow>
+        <boxGeometry args={[3.55, 5.42, 1.55]} />
+        <meshStandardMaterial color="#11141a" roughness={0.5} metalness={0.72} />
       </mesh>
 
-      <mesh position={[0, 0.52, 0.52]} receiveShadow>
-        <boxGeometry args={[4.38, 4.08, 0.08]} />
-        <meshStandardMaterial color="#242b33" roughness={0.5} metalness={0.72} />
+      <mesh position={[0, 0.24, 0.66]} receiveShadow>
+        <boxGeometry args={[3.22, 5.1, 0.12]} />
+        <meshStandardMaterial color="#20252d" roughness={0.42} metalness={0.78} />
       </mesh>
 
-      <mesh position={[0, 0.52, 0.58]} receiveShadow>
-        <boxGeometry args={[4.04, 3.72, 0.08]} />
-        <meshStandardMaterial color="#0e1115" roughness={0.64} metalness={0.46} />
+      <mesh position={[0, 0.24, 0.74]} receiveShadow>
+        <boxGeometry args={[2.9, 4.72, 0.08]} />
+        <meshStandardMaterial color="#080a0d" roughness={0.68} metalness={0.44} />
       </mesh>
 
-      <RackRail x={-2.02} />
-      <RackRail x={2.02} />
+      <RackRail x={-1.42} />
+      <RackRail x={1.42} />
+      <SideVentPattern />
+      <RackSlotStack />
 
       {modules.map((module) => (
         <ModuleTray
           activeModule={activeModule}
+          canShowLabel={isFrontView}
+          isDoorClosed={isDoorClosed}
           key={module.id}
           module={module}
           selection={selection}
@@ -194,25 +285,29 @@ function ProceduralMainframe({ activeModule, modules, selection, setActiveModule
         />
       ))}
 
-      <VentStack x={-1.08} />
-      <VentStack x={1.08} />
+      <mesh position={[0, -2.22, 0.83]} castShadow>
+        <boxGeometry args={[2.74, 0.38, 0.16]} />
+        <meshStandardMaterial color="#07090c" roughness={0.56} metalness={0.5} />
+      </mesh>
+      {Array.from({ length: 10 }).map((_, index) => (
+        <mesh key={index} position={[0, -2.08 + index * 0.038, 0.93]} castShadow>
+          <boxGeometry args={[2.32, 0.012, 0.035]} />
+          <meshStandardMaterial color="#1d232a" roughness={0.5} metalness={0.5} />
+        </mesh>
+      ))}
 
-      <mesh position={[0, -1.82, 0.64]} castShadow>
-        <boxGeometry args={[4.2, 0.34, 0.18]} />
-        <meshStandardMaterial color="#171c22" roughness={0.44} metalness={0.76} />
-      </mesh>
-      <mesh position={[0, 2.79, 0.02]} castShadow>
-        <boxGeometry args={[4.86, 0.28, 1.24]} />
-        <meshStandardMaterial color="#20262d" roughness={0.52} metalness={0.72} />
+      <mesh position={[0, 2.98, -0.18]} castShadow>
+        <boxGeometry args={[3.78, 0.22, 1.72]} />
+        <meshStandardMaterial color="#20242c" roughness={0.48} metalness={0.76} />
       </mesh>
 
-      <mesh position={[-1.74, -1.92, -0.28]} castShadow>
-        <boxGeometry args={[0.52, 0.22, 0.6]} />
-        <meshStandardMaterial color="#0a0c0f" roughness={0.5} metalness={0.55} />
+      <mesh position={[-1.18, -2.62, -0.42]} castShadow>
+        <cylinderGeometry args={[0.09, 0.09, 0.12, 20]} />
+        <meshStandardMaterial color="#07080a" roughness={0.45} metalness={0.72} />
       </mesh>
-      <mesh position={[1.74, -1.92, -0.28]} castShadow>
-        <boxGeometry args={[0.52, 0.22, 0.6]} />
-        <meshStandardMaterial color="#0a0c0f" roughness={0.5} metalness={0.55} />
+      <mesh position={[1.18, -2.62, -0.42]} castShadow>
+        <cylinderGeometry args={[0.09, 0.09, 0.12, 20]} />
+        <meshStandardMaterial color="#07080a" roughness={0.45} metalness={0.72} />
       </mesh>
 
       <CabinetDoor isDoorClosed={isDoorClosed} />
@@ -229,11 +324,11 @@ export function MainframeScene({
 }) {
   return (
     <div className="canvas-wrap">
-      <Canvas camera={{ position: [4.85, 3.2, 6.5], fov: 41 }} shadows>
+      <Canvas camera={{ position: [4.55, 3.35, 7.8], fov: 38 }} shadows>
         <color attach="background" args={['#101113']} />
-        <ambientLight intensity={0.64} />
-        <directionalLight position={[4, 5, 4]} intensity={1.8} castShadow />
-        <spotLight position={[-3.8, 4.2, 2.7]} angle={0.42} penumbra={0.45} intensity={2.1} castShadow />
+        <ambientLight intensity={0.58} />
+        <directionalLight position={[4, 6, 4]} intensity={1.8} castShadow />
+        <spotLight position={[-3.8, 4.6, 3.2]} angle={0.42} penumbra={0.45} intensity={2.25} castShadow />
 
         <Suspense fallback={null}>
           <ProceduralMainframe
@@ -244,11 +339,11 @@ export function MainframeScene({
             setActiveModule={setActiveModule}
           />
           <BlenderAssetSlots />
-          <ContactShadows position={[0, -2.05, 0]} opacity={0.5} scale={8} blur={2.6} />
+          <ContactShadows position={[0, -2.55, 0]} opacity={0.52} scale={8} blur={2.8} />
           <Environment preset="warehouse" />
         </Suspense>
 
-        <OrbitControls enablePan={false} minDistance={5} maxDistance={9} />
+        <OrbitControls enablePan={false} minDistance={6.2} maxDistance={10.4} />
       </Canvas>
     </div>
   );
