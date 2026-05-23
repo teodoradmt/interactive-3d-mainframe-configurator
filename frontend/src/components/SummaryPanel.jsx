@@ -1,7 +1,15 @@
-import { Zap } from 'lucide-react';
+import { Bot, Zap } from 'lucide-react';
 import { currency, number } from '../utils/formatters.js';
 
-export function SummaryPanel({ isComplete, totals }) {
+export function SummaryPanel({
+  aiError,
+  aiModel,
+  aiRecommendation,
+  isAiLoading,
+  isComplete,
+  onRequestAiRecommendation,
+  totals,
+}) {
   return (
     <div className="summary">
       <h2>Оценка</h2>
@@ -21,6 +29,28 @@ export function SummaryPanel({ isComplete, totals }) {
           <p className="recommendation">
             Подходяща конфигурация за: <strong>{totals.recommendation || '...'}</strong>.
           </p>
+
+          <div className="ai-panel">
+            <div className="ai-panel-head">
+              <span>
+                <Bot size={17} />
+                AI анализ
+              </span>
+              {aiModel && <small>{aiModel}</small>}
+            </div>
+
+            <button
+              className="ai-button"
+              disabled={isAiLoading}
+              onClick={onRequestAiRecommendation}
+              type="button"
+            >
+              {isAiLoading ? 'Mistral анализира...' : 'AI анализ с Mistral'}
+            </button>
+
+            {aiError && <p className="ai-error">{aiError}</p>}
+            {aiRecommendation && <p className="ai-response">{aiRecommendation}</p>}
+          </div>
         </>
       )}
     </div>

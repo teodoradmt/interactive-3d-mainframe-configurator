@@ -24,3 +24,25 @@ export function fetchEstimate(selection, signal) {
     signal,
   });
 }
+
+export function fetchAiRecommendation(selection, signal) {
+  return fetchJson('/api/ai-recommendation', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ selection }),
+    signal,
+  });
+}
+
+export function sendMainframeChatMessage({ messages, selection }, signal) {
+  return fetchJson('/api/mainframe4o-chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ messages, selection }),
+    signal,
+  });
+}

@@ -25,6 +25,8 @@ This keeps business data, API communication, React state, UI controls, and Three
 - JavaScript ES modules - frontend and backend module system.
 - CSS3 - responsive layout, component styling, transitions, and interaction states.
 - Blender/glTF workflow - exported `.glb` files can be registered in `frontend/src/config/blenderAssets.js`.
+- Ollama - local AI runtime used by the backend through `http://127.0.0.1:11434`.
+- Mistral - local language model used for AI configuration analysis.
 
 ## Current behavior
 
@@ -32,3 +34,5 @@ This keeps business data, API communication, React state, UI controls, and Three
 - Each module has three visible choices instead of a dropdown.
 - When one option is selected for every module, the frontend asks the backend for the estimate.
 - The mainframe door then closes automatically to visualize a completed configuration.
+- When a configuration is complete, the user can request a local Mistral analysis through `/api/ai-recommendation`.
+- The `Mainframe4o` chatbot can answer free-form business, budget, and workload questions through `/api/mainframe4o-chat`.

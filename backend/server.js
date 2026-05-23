@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { URL } from 'node:url';
 import { calculateEstimate, modules } from './mainframeData.js';
+import { generateAiRecommendation, generateMainframeChatReply } from './ollamaClient.js';
 
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 3001);
@@ -10,6 +11,10 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+function isSelectionComplete(selection) {
+  return modules.every((module) => selection[module.id] !== undefined);
+}
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -68,6 +73,38 @@ const server = http.createServer(async (request, response) => {
       const body = await readRequestBody(request);
       const payload = body ? JSON.parse(body) : {};
       sendJson(response, 200, calculateEstimate(payload.selection ?? payload));
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/ai-recommendation') {
+      const body = await readRequestBody(request);
+      const payload = body ? JSON.parse(body) : {};
+      const selection = payload.selection ?? {};
+      const estimate = calculateEstimate(selection);
+      const recommendation = await generateAiRecommendation({
+        estimate,
+        modules,
+        selection,
+      });
+
+      sendJson(response, 200, recommendation);
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/api/mainframe4o-chat') {
+      const body = await readRequestBody(request);
+      const payload = body ? JSON.parse(body) : {};
+      const selection = payload.selection ?? {};
+      const messages = Array.isArray(payload.messages) ? payload.messages : [];
+      const estimate = isSelectionComplete(selection) ? calculateEstimate(selection) : null;
+      const chatReply = await generateMainframeChatReply({
+        estimate,
+        messages,
+        modules,
+        selection,
+      });
+
+      sendJson(response, 200, chatReply);
       return;
     }
 

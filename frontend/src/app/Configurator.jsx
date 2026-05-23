@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MainframeScene } from '../components/MainframeScene.jsx';
+import { MainframeChat } from '../components/MainframeChat.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
 import { StatusPill } from '../components/StatusPill.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
 import { isSelectionComplete, mergeModulePresentation } from '../config/modulePresentation.js';
-import { fetchEstimate, fetchModules } from '../services/mainframeApi.js';
+import { fetchAiRecommendation, fetchEstimate, fetchModules } from '../services/mainframeApi.js';
 
 const emptyTotals = {
   total: 0,
@@ -26,6 +27,10 @@ export function Configurator() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDoorOpen, setIsDoorOpen] = useState(true);
+  const [aiRecommendation, setAiRecommendation] = useState('');
+  const [aiModel, setAiModel] = useState('');
+  const [aiError, setAiError] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -70,6 +75,10 @@ export function Configurator() {
     if (!modules.length || !isConfigurationComplete) {
       setTotals(emptyTotals);
       setIsDoorOpen(true);
+      setAiRecommendation('');
+      setAiModel('');
+      setAiError('');
+      setIsAiLoading(false);
       return undefined;
     }
 
@@ -85,7 +94,7 @@ export function Configurator() {
         setError('');
       } catch (requestError) {
         if (requestError.name !== 'AbortError') {
-          setError('Оценката от backend не се зареди.');
+          setError('Оценката от backend не се зарежда.');
         }
       }
     }
@@ -106,6 +115,26 @@ export function Configurator() {
     return error ? 'Backend offline' : 'Backend online';
   }, [error, isLoading]);
 
+  const requestAiRecommendation = async () => {
+    if (!isConfigurationComplete || isAiLoading) {
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsAiLoading(true);
+    setAiError('');
+
+    try {
+      const result = await fetchAiRecommendation(selection, controller.signal);
+      setAiRecommendation(result.recommendation);
+      setAiModel(result.model);
+    } catch {
+      setAiError('Mistral/Ollama не върна отговор. Провери дали Ollama работи и дали моделът mistral е наличен.');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const updateSelection = (moduleId, optionIndex) => {
     setSelection((current) => {
       if (current[moduleId] === optionIndex) {
@@ -118,6 +147,9 @@ export function Configurator() {
     });
     setActiveModule(moduleId);
     setIsDoorOpen(true);
+    setAiRecommendation('');
+    setAiModel('');
+    setAiError('');
   };
 
   return (
@@ -125,8 +157,7 @@ export function Configurator() {
       <section className="stage">
         <div className="titlebar">
           <div>
-            <span className="eyebrow">Дипломен проект</span>
-            <h1>Mainframe 3D Configurator</h1>
+            <h1>Interactive 3D Mainframe Configurator</h1>
           </div>
           <StatusPill>{activeStatus}</StatusPill>
         </div>
@@ -152,7 +183,17 @@ export function Configurator() {
           updateSelection={updateSelection}
         />
 
-        <SummaryPanel isComplete={isConfigurationComplete} totals={totals} />
+        <SummaryPanel
+          aiError={aiError}
+          aiModel={aiModel}
+          aiRecommendation={aiRecommendation}
+          isAiLoading={isAiLoading}
+          isComplete={isConfigurationComplete}
+          onRequestAiRecommendation={requestAiRecommendation}
+          totals={totals}
+        />
+
+        <MainframeChat selection={selection} />
       </aside>
     </main>
   );
