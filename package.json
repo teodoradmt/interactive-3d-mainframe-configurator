@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "fstart": "vite --host 127.0.0.1",
     "server": "node backend/server.js",
     "db:seed": "node backend/seedMongo.js",
     "build": "vite build",
