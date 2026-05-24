@@ -174,6 +174,8 @@ export function Configurator() {
       <aside className="panel">
         {error && <p className="state-banner">{error}</p>}
 
+        <MainframeChat selection={selection} />
+
         <ModuleConfigurationPanel
           activeModule={activeModule}
           modules={modules}
@@ -192,8 +194,6 @@ export function Configurator() {
           onRequestAiRecommendation={requestAiRecommendation}
           totals={totals}
         />
-
-        <MainframeChat selection={selection} />
       </aside>
     </main>
   );

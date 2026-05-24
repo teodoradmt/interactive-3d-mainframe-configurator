@@ -397,6 +397,12 @@ h1 {
   padding-top: 18px;
 }
 
+.panel > .chat-panel:first-child,
+.panel > .state-banner + .chat-panel {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .chat-head {
   display: flex;
   align-items: center;
