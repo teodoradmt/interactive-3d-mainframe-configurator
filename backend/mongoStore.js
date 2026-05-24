@@ -2,7 +2,7 @@ import { MongoClient } from 'mongodb';
 import { modules as defaultModules } from './mainframeData.js';
 
 const mongodbUri = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017';
-const dbName = process.env.MONGODB_DB ?? 'mainframe_configurator';
+const dbName = process.env.MONGODB_DB ?? 'Mainframe-ConfiguratorDB';
 const modulesCollectionName = process.env.MONGODB_MODULES_COLLECTION ?? 'modules';
 
 let client;
