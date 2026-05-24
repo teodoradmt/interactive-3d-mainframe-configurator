@@ -95,8 +95,8 @@ function normalizeOptionIndex(module, value) {
   return Math.min(1, module.options.length - 1);
 }
 
-export function calculateEstimate(selection = {}) {
-  const chosen = modules.map((module) => {
+export function calculateEstimate(selection = {}, availableModules = modules) {
+  const chosen = availableModules.map((module) => {
     const optionIndex = normalizeOptionIndex(module, selection[module.id]);
     return module.options[optionIndex];
   });

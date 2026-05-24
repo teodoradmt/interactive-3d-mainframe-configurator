@@ -1,6 +1,8 @@
 import http from 'node:http';
 import { URL } from 'node:url';
-import { calculateEstimate, modules } from './mainframeData.js';
+import './env.js';
+import { calculateEstimate } from './mainframeData.js';
+import { getDatabaseStatus, getModules } from './mongoStore.js';
 import { generateAiRecommendation, generateMainframeChatReply } from './ollamaClient.js';
 
 const host = process.env.HOST ?? '127.0.0.1';
@@ -12,7 +14,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-function isSelectionComplete(selection) {
+function isSelectionComplete(selection, modules) {
   return modules.every((module) => selection[module.id] !== undefined);
 }
 
@@ -60,11 +62,13 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, {
         status: 'ok',
         service: 'mainframe-backend',
+        database: await getDatabaseStatus(),
       });
       return;
     }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/modules') {
+      const modules = await getModules();
       sendJson(response, 200, modules);
       return;
     }
@@ -72,7 +76,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'POST' && requestUrl.pathname === '/api/estimate') {
       const body = await readRequestBody(request);
       const payload = body ? JSON.parse(body) : {};
-      sendJson(response, 200, calculateEstimate(payload.selection ?? payload));
+      const modules = await getModules();
+      sendJson(response, 200, calculateEstimate(payload.selection ?? payload, modules));
       return;
     }
 
@@ -80,7 +85,8 @@ const server = http.createServer(async (request, response) => {
       const body = await readRequestBody(request);
       const payload = body ? JSON.parse(body) : {};
       const selection = payload.selection ?? {};
-      const estimate = calculateEstimate(selection);
+      const modules = await getModules();
+      const estimate = calculateEstimate(selection, modules);
       const recommendation = await generateAiRecommendation({
         estimate,
         modules,
@@ -96,7 +102,8 @@ const server = http.createServer(async (request, response) => {
       const payload = body ? JSON.parse(body) : {};
       const selection = payload.selection ?? {};
       const messages = Array.isArray(payload.messages) ? payload.messages : [];
-      const estimate = isSelectionComplete(selection) ? calculateEstimate(selection) : null;
+      const modules = await getModules();
+      const estimate = isSelectionComplete(selection, modules) ? calculateEstimate(selection, modules) : null;
       const chatReply = await generateMainframeChatReply({
         estimate,
         messages,
