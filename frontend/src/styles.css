@@ -321,15 +321,6 @@ h1 {
   text-align: right;
 }
 
-.recommendation {
-  margin-top: 4px;
-  border-radius: 8px;
-  background: rgba(46, 166, 152, 0.16);
-  color: #d6fbf6;
-  line-height: 1.45;
-  padding: 12px;
-}
-
 .ai-panel {
   display: grid;
   gap: 10px;
@@ -462,6 +453,36 @@ h1 {
 
 .chat-message.pending {
   color: #c9d1d6;
+}
+
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.chat-apply-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(116, 242, 180, 0.34);
+  border-radius: 7px;
+  background: rgba(46, 166, 152, 0.2);
+  color: #eafffb;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.chat-apply-button:hover {
+  background: rgba(46, 166, 152, 0.3);
+}
+
+.chat-apply-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .chat-error {

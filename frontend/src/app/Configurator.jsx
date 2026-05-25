@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MainframeScene } from '../components/MainframeScene.jsx';
 import { MainframeChat } from '../components/MainframeChat.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
@@ -16,8 +16,14 @@ const emptyTotals = {
   kw: 0,
   monthlyCost: 0,
   yearlyCost: 0,
-  recommendation: '',
 };
+const applyStepDelayMs = 360;
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
 
 export function Configurator() {
   const [modules, setModules] = useState([]);
@@ -31,6 +37,7 @@ export function Configurator() {
   const [aiModel, setAiModel] = useState('');
   const [aiError, setAiError] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const applySequenceRef = useRef(0);
 
   useEffect(() => {
     let ignore = false;
@@ -129,13 +136,14 @@ export function Configurator() {
       setAiRecommendation(result.recommendation);
       setAiModel(result.model);
     } catch {
-      setAiError('Mistral/Ollama не върна отговор. Провери дали Ollama работи и дали моделът mistral е наличен.');
+      setAiError('Ollama не върна отговор. Провери дали работи и дали моделът qwen3:14b е наличен.');
     } finally {
       setIsAiLoading(false);
     }
   };
 
   const updateSelection = (moduleId, optionIndex) => {
+    applySequenceRef.current += 1;
     setSelection((current) => {
       if (current[moduleId] === optionIndex) {
         const nextSelection = { ...current };
@@ -150,6 +158,46 @@ export function Configurator() {
     setAiRecommendation('');
     setAiModel('');
     setAiError('');
+  };
+
+  const applySuggestedSelection = async (suggestedSelection) => {
+    const nextSelection = {};
+
+    modules.forEach((module) => {
+      const optionIndex = Number(suggestedSelection[module.id]);
+
+      if (Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < module.options.length) {
+        nextSelection[module.id] = optionIndex;
+      }
+    });
+
+    const sequence = applySequenceRef.current + 1;
+
+    applySequenceRef.current = sequence;
+    setSelection({});
+    setActiveModule(modules.find((module) => nextSelection[module.id] !== undefined)?.id ?? modules[0]?.id ?? null);
+    setIsDoorOpen(true);
+    setAiRecommendation('');
+    setAiModel('');
+    setAiError('');
+
+    for (const module of modules) {
+      if (applySequenceRef.current !== sequence) {
+        return;
+      }
+
+      if (nextSelection[module.id] === undefined) {
+        continue;
+      }
+
+      setActiveModule(module.id);
+      setSelection((current) => ({
+        ...current,
+        [module.id]: nextSelection[module.id],
+      }));
+
+      await wait(applyStepDelayMs);
+    }
   };
 
   return (
@@ -174,7 +222,7 @@ export function Configurator() {
       <aside className="panel">
         {error && <p className="state-banner">{error}</p>}
 
-        <MainframeChat selection={selection} />
+        <MainframeChat onApplySelection={applySuggestedSelection} selection={selection} />
 
         <ModuleConfigurationPanel
           activeModule={activeModule}

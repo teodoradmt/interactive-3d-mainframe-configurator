@@ -38,7 +38,11 @@ function cloneModuleForMongo(module, order) {
 
 function stripMongoFields(module) {
   const { _id, order, ...plainModule } = module;
-  return plainModule;
+
+  return {
+    ...plainModule,
+    options: plainModule.options.map(({ client: _client, ...option }) => option),
+  };
 }
 
 async function createIndexes(collection) {

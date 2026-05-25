@@ -11,7 +11,6 @@ export const modules = [
         cpu: 85000,
         accelerator: 6,
         watts: 2.4,
-        client: 'малка банка, университетски център или Linux on IBM Z среда',
       },
       {
         name: 'IBM z16 Telum',
@@ -20,7 +19,6 @@ export const modules = [
         cpu: 125000,
         accelerator: 24,
         watts: 5.8,
-        client: 'застраховател, платежен оператор или ERP център с fraud detection',
       },
       {
         name: 'IBM z17 Telum II',
@@ -29,7 +27,6 @@ export const modules = [
         cpu: 175000,
         accelerator: 48,
         watts: 10.6,
-        client: 'национална банка, телекомуникационен оператор или AI-ready държавна инфраструктура',
       },
     ],
   },
@@ -111,7 +108,6 @@ export function calculateEstimate(selection = {}, availableModules = modules) {
   const ram = chosen.reduce((sum, item) => sum + (item.ram ?? 0), 0);
   const storage = chosen.reduce((sum, item) => sum + (item.storage ?? 0), 0);
   const total = chosen.reduce((sum, item) => sum + item.price, 0);
-  const recommendation = chosen.find((item) => item.client)?.client ?? 'корпоративен клиент';
 
   return {
     total,
@@ -124,6 +120,5 @@ export function calculateEstimate(selection = {}, availableModules = modules) {
     yearlyEnergy,
     monthlyCost: monthlyEnergy * energyPrice,
     yearlyCost: yearlyEnergy * energyPrice,
-    recommendation,
   };
 }

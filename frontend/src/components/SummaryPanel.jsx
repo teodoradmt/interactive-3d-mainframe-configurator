@@ -1,4 +1,4 @@
-import { Bot, Zap } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { currency, number } from '../utils/formatters.js';
 
 export function SummaryPanel({
@@ -23,12 +23,9 @@ export function SummaryPanel({
           <Metric label="AI профил" value={`${number.format(totals.accelerator)} AI score`} />
           <Metric label="RAM" value={`${number.format(totals.ram)} GB`} />
           <Metric label="Storage" value={`${number.format(totals.storage)} TB`} />
-          <Metric label="Електроенергия" value={`${totals.kw.toFixed(1)} kW`} icon={<Zap size={16} />} />
+          <Metric label="Електроенергия" value={`${totals.kw.toFixed(1)} kW`}   />
           <Metric label="Месечен разход" value={currency.format(totals.monthlyCost)} />
           <Metric label="Годишен разход" value={currency.format(totals.yearlyCost)} />
-          <p className="recommendation">
-            Подходяща конфигурация за: <strong>{totals.recommendation || '...'}</strong>.
-          </p>
 
           <div className="ai-panel">
             <div className="ai-panel-head">
@@ -45,7 +42,7 @@ export function SummaryPanel({
               onClick={onRequestAiRecommendation}
               type="button"
             >
-              {isAiLoading ? 'Mistral анализира...' : 'AI анализ с Mistral'}
+              {isAiLoading ? 'AI анализира...' : 'AI анализ с Qwen3'}
             </button>
 
             {aiError && <p className="ai-error">{aiError}</p>}
