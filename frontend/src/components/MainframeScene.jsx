@@ -263,7 +263,7 @@ function ModuleTray({
       </mesh>
 
       {canRenderLabel && (
-        <Html center distanceFactor={8} occlude position={[0, 0.005, 0.18]} className="module-label">
+        <Html center distanceFactor={8} position={[0, 0.005, 0.18]} className="module-label">
           {selectedOption ? selectedOption.name : module.short}
         </Html>
       )}
