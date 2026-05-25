@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MainframeScene } from '../components/MainframeScene.jsx';
 import { MainframeChat } from '../components/MainframeChat.jsx';
+import { MainframeBackgroundPanel } from '../components/MainframeBackgroundPanel.jsx';
 import { MainframeDesignPanel } from '../components/MainframeDesignPanel.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
-import { StatusPill } from '../components/StatusPill.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
 import { getMainframeDesign, mainframeDesigns } from '../config/mainframeDesigns.js';
 import { isSelectionComplete, mergeModulePresentation } from '../config/modulePresentation.js';
@@ -20,6 +20,12 @@ const emptyTotals = {
   yearlyCost: 0,
 };
 const applyStepDelayMs = 360;
+const defaultSceneBackground = {
+  type: 'color',
+  color: '#101113',
+  imageUrl: '',
+  imageName: '',
+};
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -32,15 +38,16 @@ export function Configurator() {
   const [selection, setSelection] = useState({});
   const [activeModule, setActiveModule] = useState(null);
   const [totals, setTotals] = useState(emptyTotals);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDoorOpen, setIsDoorOpen] = useState(true);
   const [selectedDesignId, setSelectedDesignId] = useState(mainframeDesigns[0].id);
+  const [sceneBackground, setSceneBackground] = useState(defaultSceneBackground);
   const [aiRecommendation, setAiRecommendation] = useState('');
   const [aiModel, setAiModel] = useState('');
   const [aiError, setAiError] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const applySequenceRef = useRef(0);
+  const backgroundImageUrlRef = useRef('');
 
   useEffect(() => {
     let ignore = false;
@@ -53,12 +60,10 @@ export function Configurator() {
         if (!ignore) {
           setModules(frontendModules);
           setActiveModule(frontendModules[0]?.id ?? null);
-          setIsLoading(false);
           setError('');
         }
       } catch {
         if (!ignore) {
-          setIsLoading(false);
           setError('Backend API не отговаря.');
         }
       }
@@ -69,6 +74,12 @@ export function Configurator() {
     return () => {
       ignore = true;
     };
+  }, []);
+
+  useEffect(() => () => {
+    if (backgroundImageUrlRef.current) {
+      URL.revokeObjectURL(backgroundImageUrlRef.current);
+    }
   }, []);
 
   const isConfigurationComplete = useMemo(
@@ -122,14 +133,6 @@ export function Configurator() {
     };
   }, [isConfigurationComplete, modules.length, selection]);
 
-  const activeStatus = useMemo(() => {
-    if (isLoading) {
-      return 'Свързване';
-    }
-
-    return error ? 'Backend offline' : 'Backend online';
-  }, [error, isLoading]);
-
   const requestAiRecommendation = async () => {
     if (!isConfigurationComplete || isAiLoading) {
       return;
@@ -148,6 +151,59 @@ export function Configurator() {
     } finally {
       setIsAiLoading(false);
     }
+  };
+
+  const clearSceneBackgroundImage = () => {
+    if (backgroundImageUrlRef.current) {
+      URL.revokeObjectURL(backgroundImageUrlRef.current);
+      backgroundImageUrlRef.current = '';
+    }
+
+    setSceneBackground((current) => ({
+      ...current,
+      type: 'color',
+      imageUrl: '',
+      imageName: '',
+    }));
+  };
+
+  const resetSceneBackground = () => {
+    if (backgroundImageUrlRef.current) {
+      URL.revokeObjectURL(backgroundImageUrlRef.current);
+      backgroundImageUrlRef.current = '';
+    }
+
+    setSceneBackground(defaultSceneBackground);
+  };
+
+  const changeSceneBackgroundColor = (color) => {
+    if (backgroundImageUrlRef.current) {
+      URL.revokeObjectURL(backgroundImageUrlRef.current);
+      backgroundImageUrlRef.current = '';
+    }
+
+    setSceneBackground({
+      type: 'color',
+      color,
+      imageUrl: '',
+      imageName: '',
+    });
+  };
+
+  const selectSceneBackgroundImage = (file) => {
+    if (backgroundImageUrlRef.current) {
+      URL.revokeObjectURL(backgroundImageUrlRef.current);
+    }
+
+    const imageUrl = URL.createObjectURL(file);
+    backgroundImageUrlRef.current = imageUrl;
+
+    setSceneBackground((current) => ({
+      ...current,
+      type: 'image',
+      imageUrl,
+      imageName: file.name,
+    }));
   };
 
   const updateSelection = (moduleId, optionIndex) => {
@@ -216,17 +272,24 @@ export function Configurator() {
             <h1>Interactive 3D Mainframe Configurator</h1>
           </div>
           <div className="title-actions">
+            <MainframeBackgroundPanel
+              background={sceneBackground}
+              onChangeColor={changeSceneBackgroundColor}
+              onClearImage={clearSceneBackgroundImage}
+              onResetBackground={resetSceneBackground}
+              onSelectImage={selectSceneBackgroundImage}
+            />
             <MainframeDesignPanel
               designs={mainframeDesigns}
               onSelectDesign={setSelectedDesignId}
               selectedDesignId={selectedDesignId}
             />
-            <StatusPill>{activeStatus}</StatusPill>
           </div>
         </div>
 
         <MainframeScene
           activeModule={activeModule}
+          background={sceneBackground}
           design={selectedDesign}
           isDoorClosed={isConfigurationComplete && !isDoorOpen}
           modules={modules}

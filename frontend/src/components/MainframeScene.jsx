@@ -9,6 +9,24 @@ const LABEL_FRONT_VIEW_THRESHOLD = 0.52;
 const DOOR_CLOSED_ANGLE = 0;
 const DOOR_OPEN_ANGLE = -1.12;
 const MODULE_COVER_DELAY_MS = 1050;
+const DEFAULT_SCENE_BACKGROUND = {
+  type: 'color',
+  color: '#101113',
+  imageUrl: '',
+};
+
+function getCanvasBackgroundStyle(background, fallbackColor) {
+  if (background?.type === 'image' && background.imageUrl) {
+    return {
+      backgroundColor: background.color ?? fallbackColor,
+      backgroundImage: `url("${background.imageUrl}")`,
+    };
+  }
+
+  return {
+    backgroundColor: background?.color ?? fallbackColor,
+  };
+}
 
 function ImportedGlbObject({ asset }) {
   const { scene } = useGLTF(asset.path);
@@ -492,6 +510,7 @@ function ProceduralMainframe({ activeModule, design, modules, selection, setActi
 
 export function MainframeScene({
   activeModule,
+  background = DEFAULT_SCENE_BACKGROUND,
   design = defaultMainframeDesign,
   isDoorClosed,
   modules,
@@ -499,11 +518,11 @@ export function MainframeScene({
   setActiveModule,
 }) {
   const colors = design.colors;
+  const canvasBackgroundStyle = getCanvasBackgroundStyle(background, colors.canvasBackground);
 
   return (
-    <div className="canvas-wrap">
-      <Canvas camera={{ position: [4.55, 3.35, 7.8], fov: 38 }} shadows>
-        <color attach="background" args={[colors.canvasBackground]} />
+    <div className="canvas-wrap" style={canvasBackgroundStyle}>
+      <Canvas camera={{ position: [4.55, 3.35, 7.8], fov: 38 }} gl={{ alpha: true }} shadows style={{ background: 'transparent' }}>
         <ambientLight intensity={0.58} />
         <directionalLight position={[4, 6, 4]} intensity={1.8} castShadow />
         <spotLight position={[-3.8, 4.6, 3.2]} angle={0.42} penumbra={0.45} intensity={2.25} castShadow />
