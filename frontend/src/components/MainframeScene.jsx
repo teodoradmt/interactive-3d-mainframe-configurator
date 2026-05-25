@@ -1,10 +1,13 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { ContactShadows, Environment, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import { MathUtils, Vector3 } from 'three';
 import { blenderAssets } from '../config/blenderAssets.js';
 
 const LABEL_FRONT_VIEW_THRESHOLD = 0.52;
+const DOOR_CLOSED_ANGLE = 0;
+const DOOR_OPEN_ANGLE = -1.12;
+const MODULE_COVER_DELAY_MS = 1050;
 
 function ImportedGlbObject({ asset }) {
   const { scene } = useGLTF(asset.path);
@@ -87,7 +90,16 @@ function RackSlotStack() {
   );
 }
 
-function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selection, setActiveModule }) {
+function ModuleTray({
+  canShowLabel,
+  isConfigurationComplete,
+  isDoorClosed,
+  isModuleCovered,
+  module,
+  activeModule,
+  selection,
+  setActiveModule,
+}) {
   const groupRef = useRef(null);
   const trayMaterialRef = useRef(null);
   const stripMaterialRef = useRef(null);
@@ -100,12 +112,13 @@ function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selectio
   const selectedIndex = selection[module.id];
   const isConfigured = selectedIndex !== undefined;
   const isActive = activeModule === module.id;
-  const isVisuallyActive = isActive && !isDoorClosed;
+  const isVisuallyActive = isActive && !isConfigurationComplete && !isDoorClosed && !isModuleCovered;
   const selectedOption = isConfigured ? module.options[selectedIndex] : null;
-  const z = isDoorClosed ? 0.56 : isVisuallyActive ? 0.9 : 0.78;
-  const trayGlow = isDoorClosed ? 0.01 : isVisuallyActive ? 0.22 : isConfigured ? 0.08 : 0.02;
-  const stripGlow = isDoorClosed ? 0.03 : isConfigured ? 0.62 : 0.15;
-  const indicatorGlow = isDoorClosed ? 0.03 : isConfigured ? 0.72 : 0.08;
+  const z = isModuleCovered ? 0.56 : isVisuallyActive ? 0.9 : 0.78;
+  const trayGlow = isModuleCovered ? 0.01 : isVisuallyActive ? 0.22 : isConfigured ? 0.08 : 0.02;
+  const stripGlow = isModuleCovered ? 0.03 : isConfigured ? 0.62 : 0.15;
+  const indicatorGlow = isModuleCovered ? 0.03 : isConfigured ? 0.72 : 0.08;
+  const canRenderLabel = !isDoorClosed && !isModuleCovered && canShowLabel;
 
   useEffect(() => {
     const previousSelectedIndex = previousSelectedIndexRef.current;
@@ -247,8 +260,8 @@ function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selectio
         />
       </mesh>
 
-      {!isDoorClosed && canShowLabel && (
-        <Html center distanceFactor={8} position={[0, 0.005, 0.18]} className="module-label">
+      {canRenderLabel && (
+        <Html center distanceFactor={8} occlude position={[0, 0.005, 0.18]} className="module-label">
           {selectedOption ? selectedOption.name : module.short}
         </Html>
       )}
@@ -278,11 +291,22 @@ function DoorPanelSegment({ y }) {
 function CabinetDoor({ isDoorClosed }) {
   const doorRef = useRef(null);
   const doorPulseRef = useRef(0);
+  const initialDoorAngleRef = useRef(isDoorClosed ? DOOR_CLOSED_ANGLE : DOOR_OPEN_ANGLE);
+  const previousDoorClosedRef = useRef(isDoorClosed);
   const edgeMaterialRef = useRef(null);
   const handleMaterialRef = useRef(null);
 
+  useLayoutEffect(() => {
+    if (doorRef.current) {
+      doorRef.current.rotation.y = initialDoorAngleRef.current;
+    }
+  }, []);
+
   useEffect(() => {
-    doorPulseRef.current = 1;
+    if (previousDoorClosedRef.current !== isDoorClosed) {
+      doorPulseRef.current = 1;
+      previousDoorClosedRef.current = isDoorClosed;
+    }
   }, [isDoorClosed]);
 
   useFrame((_, delta) => {
@@ -290,15 +314,17 @@ function CabinetDoor({ isDoorClosed }) {
       return;
     }
 
-    const targetAngle = isDoorClosed ? 0 : -1.12;
+    const targetAngle = isDoorClosed ? DOOR_CLOSED_ANGLE : DOOR_OPEN_ANGLE;
     const pulse = doorPulseRef.current;
-    const flash = pulse > 0 ? Math.sin((1 - pulse) * Math.PI) : 0;
+    const progress = 1 - pulse;
+    const flash = pulse > 0 ? Math.sin(progress * Math.PI) : 0;
+    const latchMotion = isDoorClosed ? flash * 0.035 : -flash * 0.018;
 
-    doorPulseRef.current = Math.max(0, pulse - delta * 1.05);
+    doorPulseRef.current = Math.max(0, pulse - delta * 0.9);
     doorRef.current.rotation.y = MathUtils.damp(
       doorRef.current.rotation.y,
-      targetAngle,
-      isDoorClosed ? 2.35 : 2.9,
+      targetAngle + latchMotion,
+      isDoorClosed ? 2.15 : 2.85,
       delta,
     );
 
@@ -319,7 +345,7 @@ function CabinetDoor({ isDoorClosed }) {
         <meshStandardMaterial color="#0b0e13" roughness={0.34} metalness={0.9} />
       </mesh>
 
-      <group ref={doorRef} rotation={[0, isDoorClosed ? 0 : -1.12, 0]}>
+      <group ref={doorRef}>
         <mesh position={[1.58, 0, 0]} castShadow receiveShadow>
           <boxGeometry args={[3.16, 5.24, 0.1]} />
           <meshStandardMaterial color="#111216" roughness={0.36} metalness={0.82} />
@@ -360,7 +386,24 @@ function CabinetDoor({ isDoorClosed }) {
 function ProceduralMainframe({ activeModule, modules, selection, setActiveModule, isDoorClosed }) {
   const mainframeRef = useRef(null);
   const cameraPosition = useMemo(() => new Vector3(), []);
+  const isConfigurationComplete = modules.length > 0 && modules.every((module) => selection[module.id] !== undefined);
   const [isFrontView, setIsFrontView] = useState(true);
+  const [areModulesCovered, setAreModulesCovered] = useState(isDoorClosed);
+
+  useEffect(() => {
+    if (!isDoorClosed) {
+      setAreModulesCovered(false);
+      return undefined;
+    }
+
+    const coverTimer = window.setTimeout(() => {
+      setAreModulesCovered(true);
+    }, MODULE_COVER_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(coverTimer);
+    };
+  }, [isDoorClosed]);
 
   useFrame(({ camera }) => {
     if (!mainframeRef.current) {
@@ -403,7 +446,9 @@ function ProceduralMainframe({ activeModule, modules, selection, setActiveModule
         <ModuleTray
           activeModule={activeModule}
           canShowLabel={isFrontView}
+          isConfigurationComplete={isConfigurationComplete}
           isDoorClosed={isDoorClosed}
+          isModuleCovered={areModulesCovered}
           key={module.id}
           module={module}
           selection={selection}
