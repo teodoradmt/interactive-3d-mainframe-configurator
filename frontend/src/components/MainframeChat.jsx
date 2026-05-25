@@ -5,15 +5,11 @@ import { sendMainframeChatMessage } from '../services/mainframeApi.js';
 const minimumThinkingMs = 1800;
 const typingDelayMs = 18;
 const typingChunkSize = 5;
+const welcomeTypingDelayMs = 16;
+const welcomeTypingChunkSize = 1;
 
-const initialMessages = [
-  {
-    id: 'welcome',
-    role: 'assistant',
-    content:
-      'Здравей, аз съм Mainframe4o. С какво мога да ти бъда полезен? Мога да ти предложа примерна конфигурация или да сравня модулите за теб. Само кажи.',
-  },
-];
+const welcomeMessageText =
+  'Здравей, аз съм Mainframe4o. Мога да ти предложа примерна конфигурация или да ти обясня модулите. Попитай ме! :)';
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -30,8 +26,9 @@ function isApplyConfirmation(text) {
 }
 
 export function MainframeChat({ onApplySelection, selection }) {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
+  const [isChatStarted, setIsChatStarted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [pendingSuggestion, setPendingSuggestion] = useState(null);
@@ -41,8 +38,8 @@ export function MainframeChat({ onApplySelection, selection }) {
 
   const isTyping = useMemo(() => messages.some((message) => message.isTyping), [messages]);
   const canSend = useMemo(
-    () => draft.trim().length > 0 && !isSending && !isTyping && !isApplyingSelection,
-    [draft, isApplyingSelection, isSending, isTyping],
+    () => isChatStarted && draft.trim().length > 0 && !isSending && !isTyping && !isApplyingSelection,
+    [draft, isApplyingSelection, isChatStarted, isSending, isTyping],
   );
 
   useEffect(() => {
@@ -55,7 +52,13 @@ export function MainframeChat({ onApplySelection, selection }) {
     chatLog.scrollTop = chatLog.scrollHeight;
   }, [messages, isSending, error]);
 
-  const revealAssistantMessage = async ({ model, reply, suggestedSelection }) => {
+  const revealAssistantMessage = async ({
+    delayMs = typingDelayMs,
+    model,
+    reply,
+    suggestedSelection,
+    chunkSize = typingChunkSize,
+  }) => {
     const text = reply || 'Няма върнат отговор.';
     const messageId = createMessageId('assistant');
     const sequence = typingSequenceRef.current + 1;
@@ -73,8 +76,8 @@ export function MainframeChat({ onApplySelection, selection }) {
       },
     ]);
 
-    for (let visibleChars = typingChunkSize; visibleChars < text.length; visibleChars += typingChunkSize) {
-      await wait(typingDelayMs);
+    for (let visibleChars = chunkSize; visibleChars < text.length; visibleChars += chunkSize) {
+      await wait(delayMs);
 
       if (typingSequenceRef.current !== sequence) {
         return;
@@ -92,6 +95,20 @@ export function MainframeChat({ onApplySelection, selection }) {
         ? { ...message, content: text, isTyping: false }
         : message
     )));
+  };
+
+  const startChat = async () => {
+    if (isChatStarted || isTyping) {
+      return;
+    }
+
+    setIsChatStarted(true);
+    setError('');
+    await revealAssistantMessage({
+      delayMs: welcomeTypingDelayMs,
+      reply: welcomeMessageText,
+      chunkSize: welcomeTypingChunkSize,
+    });
   };
 
   const applySuggestedSelection = async (suggestedSelection, includeUserMessage = false) => {
@@ -191,47 +208,58 @@ export function MainframeChat({ onApplySelection, selection }) {
         <small>local Qwen3</small>
       </div>
 
-      <div className="chat-log" aria-live="polite" ref={chatLogRef}>
-        {messages.map((message, index) => (
-          <article className={`chat-message ${message.role}`} key={message.id ?? `${message.role}-${index}`}>
-            <span>{message.role === 'assistant' ? 'Mainframe4o' : 'Вие'}</span>
-            <div>{message.content}</div>
-            {message.suggestedSelection && !message.isTyping && (
-              <div className="chat-actions">
-                <button
-                  className="chat-apply-button"
-                  disabled={isApplyingSelection}
-                  onClick={() => applySuggestedSelection(message.suggestedSelection, true)}
-                  type="button"
-                >
-                  <Check size={16} />
-                  {isApplyingSelection ? 'Прилагам...' : 'Приложи конфигурацията'}
-                </button>
-              </div>
+      {!isChatStarted ? (
+        <div className="chat-start">
+          <button className="chat-start-button" onClick={startChat} type="button">
+            <Bot size={17} />
+            Започни чат с Mainframe4o
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="chat-log" aria-live="polite" ref={chatLogRef}>
+            {messages.map((message, index) => (
+              <article className={`chat-message ${message.role}`} key={message.id ?? `${message.role}-${index}`}>
+                <span>{message.role === 'assistant' ? 'Mainframe4o' : 'Вие'}</span>
+                <div>{message.content}</div>
+                {message.suggestedSelection && !message.isTyping && (
+                  <div className="chat-actions">
+                    <button
+                      className="chat-apply-button"
+                      disabled={isApplyingSelection}
+                      onClick={() => applySuggestedSelection(message.suggestedSelection, true)}
+                      type="button"
+                    >
+                      <Check size={16} />
+                      {isApplyingSelection ? 'Прилагам...' : 'Приложи конфигурацията'}
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+            {isSending && (
+              <article className="chat-message assistant pending">
+                <span>Mainframe4o</span>
+                Mainframe4o мисли...
+              </article>
             )}
-          </article>
-        ))}
-        {isSending && (
-          <article className="chat-message assistant pending">
-            <span>Mainframe4o</span>
-            Mainframe4o мисли...
-          </article>
-        )}
-      </div>
+          </div>
 
-      {error && <p className="chat-error">{error}</p>}
+          {error && <p className="chat-error">{error}</p>}
 
-      <form className="chat-form" onSubmit={sendMessage}>
-        <textarea
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Пример: Банка, висока натовареност, бюджет 2 млн. евро, приоритети: сигурност и транзакции."
-          rows={3}
-          value={draft}
-        />
-        <button disabled={!canSend} type="submit">
-          <Send size={17} />
-        </button>
-      </form>
+          <form className="chat-form" onSubmit={sendMessage}>
+            <textarea
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Пример: Банка, висока натовареност, бюджет 2 млн. евро, приоритети: сигурност и транзакции."
+              rows={3}
+              value={draft}
+            />
+            <button disabled={!canSend} type="submit">
+              <Send size={17} />
+            </button>
+          </form>
+        </>
+      )}
     </section>
   );
 }

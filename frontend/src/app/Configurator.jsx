@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MainframeScene } from '../components/MainframeScene.jsx';
 import { MainframeChat } from '../components/MainframeChat.jsx';
+import { MainframeDesignPanel } from '../components/MainframeDesignPanel.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
 import { StatusPill } from '../components/StatusPill.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
+import { getMainframeDesign, mainframeDesigns } from '../config/mainframeDesigns.js';
 import { isSelectionComplete, mergeModulePresentation } from '../config/modulePresentation.js';
 import { fetchAiRecommendation, fetchEstimate, fetchModules } from '../services/mainframeApi.js';
 
@@ -33,6 +35,7 @@ export function Configurator() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDoorOpen, setIsDoorOpen] = useState(true);
+  const [selectedDesignId, setSelectedDesignId] = useState(mainframeDesigns[0].id);
   const [aiRecommendation, setAiRecommendation] = useState('');
   const [aiModel, setAiModel] = useState('');
   const [aiError, setAiError] = useState('');
@@ -76,6 +79,11 @@ export function Configurator() {
   const selectedCount = useMemo(
     () => modules.filter((module) => selection[module.id] !== undefined).length,
     [modules, selection],
+  );
+
+  const selectedDesign = useMemo(
+    () => getMainframeDesign(selectedDesignId),
+    [selectedDesignId],
   );
 
   useEffect(() => {
@@ -207,11 +215,19 @@ export function Configurator() {
           <div>
             <h1>Interactive 3D Mainframe Configurator</h1>
           </div>
-          <StatusPill>{activeStatus}</StatusPill>
+          <div className="title-actions">
+            <MainframeDesignPanel
+              designs={mainframeDesigns}
+              onSelectDesign={setSelectedDesignId}
+              selectedDesignId={selectedDesignId}
+            />
+            <StatusPill>{activeStatus}</StatusPill>
+          </div>
         </div>
 
         <MainframeScene
           activeModule={activeModule}
+          design={selectedDesign}
           isDoorClosed={isConfigurationComplete && !isDoorOpen}
           modules={modules}
           selection={selection}
