@@ -257,8 +257,32 @@ h1 {
 }
 
 .option-choice.selected {
+  animation: option-selected-pulse 520ms ease-out;
   background: color-mix(in srgb, var(--accent), #121416 82%);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent), white 28%);
+}
+
+@keyframes option-selected-pulse {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent), white 32%),
+      0 0 0 0 color-mix(in srgb, var(--accent), transparent 45%);
+    transform: translateY(0);
+  }
+
+  42% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent), white 34%),
+      0 0 0 5px color-mix(in srgb, var(--accent), transparent 82%);
+    transform: translateY(-2px);
+  }
+
+  100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent), white 28%),
+      0 0 0 0 color-mix(in srgb, var(--accent), transparent 100%);
+    transform: translateY(0);
+  }
 }
 
 .option-name {
@@ -567,7 +591,10 @@ h1 {
   }
 
   h1 {
-    font-size: 2.25rem;
+    max-width: 100%;
+    font-size: clamp(1.45rem, 7vw, 1.9rem);
+    line-height: 1.04;
+    overflow-wrap: anywhere;
   }
 
   .status-pill {

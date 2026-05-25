@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { ContactShadows, Environment, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import { MathUtils, Vector3 } from 'three';
@@ -88,6 +88,15 @@ function RackSlotStack() {
 }
 
 function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selection, setActiveModule }) {
+  const groupRef = useRef(null);
+  const trayMaterialRef = useRef(null);
+  const stripMaterialRef = useRef(null);
+  const indicatorMaterialRef = useRef(null);
+  const scanMeshRef = useRef(null);
+  const scanMaterialRef = useRef(null);
+  const pulseRef = useRef(0);
+  const pulseModeRef = useRef('select');
+  const previousSelectedIndexRef = useRef(selection[module.id]);
   const selectedIndex = selection[module.id];
   const isConfigured = selectedIndex !== undefined;
   const isActive = activeModule === module.id;
@@ -98,10 +107,88 @@ function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selectio
   const stripGlow = isDoorClosed ? 0.03 : isConfigured ? 0.62 : 0.15;
   const indicatorGlow = isDoorClosed ? 0.03 : isConfigured ? 0.72 : 0.08;
 
+  useEffect(() => {
+    const previousSelectedIndex = previousSelectedIndexRef.current;
+
+    if (selectedIndex !== previousSelectedIndex) {
+      pulseModeRef.current = selectedIndex === undefined ? 'remove' : 'select';
+      pulseRef.current = 1;
+    }
+
+    previousSelectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
+
+  useFrame((_, delta) => {
+    const pulse = pulseRef.current;
+    const progress = 1 - pulse;
+    const isRemoving = pulseModeRef.current === 'remove';
+    const flash = pulse > 0 ? Math.sin(progress * Math.PI) : 0;
+    const lift = isRemoving ? -flash * 0.04 : flash * 0.09;
+    const targetScale = isRemoving ? 1 - flash * 0.018 : 1 + flash * 0.025;
+
+    pulseRef.current = Math.max(0, pulse - delta * 1.35);
+
+    if (groupRef.current) {
+      groupRef.current.position.z = MathUtils.damp(groupRef.current.position.z, z + lift, 8.5, delta);
+      groupRef.current.scale.setScalar(MathUtils.damp(groupRef.current.scale.x, targetScale, 10, delta));
+    }
+
+    if (trayMaterialRef.current) {
+      trayMaterialRef.current.emissiveIntensity = MathUtils.damp(
+        trayMaterialRef.current.emissiveIntensity,
+        trayGlow + flash * (isRemoving ? 0.28 : 0.58),
+        9,
+        delta,
+      );
+    }
+
+    if (stripMaterialRef.current) {
+      stripMaterialRef.current.emissiveIntensity = MathUtils.damp(
+        stripMaterialRef.current.emissiveIntensity,
+        stripGlow + flash * (isRemoving ? 0.42 : 1.05),
+        9,
+        delta,
+      );
+    }
+
+    if (indicatorMaterialRef.current) {
+      const indicatorColor = isRemoving && flash > 0.02
+        ? '#f5c15c'
+        : isConfigured
+          ? '#7df1b4'
+          : '#75808a';
+      const indicatorEmissive = isRemoving && flash > 0.02
+        ? '#f59e0b'
+        : isConfigured
+          ? '#2fd684'
+          : '#111827';
+
+      indicatorMaterialRef.current.color.set(indicatorColor);
+      indicatorMaterialRef.current.emissive.set(indicatorEmissive);
+      indicatorMaterialRef.current.emissiveIntensity = MathUtils.damp(
+        indicatorMaterialRef.current.emissiveIntensity,
+        indicatorGlow + flash * (isRemoving ? 0.85 : 1.2),
+        9,
+        delta,
+      );
+    }
+
+    if (scanMaterialRef.current) {
+      scanMaterialRef.current.color.set(isRemoving ? '#f8d28b' : '#e6fff8');
+      scanMaterialRef.current.emissive.set(isRemoving ? '#f59e0b' : module.color);
+      scanMaterialRef.current.opacity = MathUtils.damp(scanMaterialRef.current.opacity, flash * (isRemoving ? 0.36 : 0.5), 12, delta);
+    }
+
+    if (scanMeshRef.current) {
+      scanMeshRef.current.position.x = isRemoving
+        ? module.size[0] * 0.44 - progress * module.size[0] * 0.88
+        : -module.size[0] * 0.44 + progress * module.size[0] * 0.88;
+    }
+  });
+
   return (
-    <group>
+    <group ref={groupRef} position={[module.position[0], module.position[1], z]}>
       <mesh
-        position={[module.position[0], module.position[1], z]}
         castShadow
         onClick={(event) => {
           event.stopPropagation();
@@ -114,6 +201,7 @@ function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selectio
       >
         <boxGeometry args={module.size} />
         <meshStandardMaterial
+          ref={trayMaterialRef}
           color={isConfigured ? '#2a333c' : '#1c2229'}
           emissive={isConfigured ? module.color : '#05070a'}
           emissiveIntensity={trayGlow}
@@ -122,32 +210,45 @@ function ModuleTray({ canShowLabel, isDoorClosed, module, activeModule, selectio
         />
       </mesh>
 
-      <mesh position={[module.position[0], module.position[1] + module.size[1] * 0.36, z + 0.12]} castShadow>
+      <mesh position={[0, module.size[1] * 0.36, 0.12]} castShadow>
         <boxGeometry args={[module.size[0] - 0.2, 0.035, 0.035]} />
-        <meshStandardMaterial color={module.color} emissive={module.color} emissiveIntensity={stripGlow} />
+        <meshStandardMaterial ref={stripMaterialRef} color={module.color} emissive={module.color} emissiveIntensity={stripGlow} />
       </mesh>
 
-      <mesh position={[module.position[0] - module.size[0] * 0.43, module.position[1] - 0.09, z + 0.125]} castShadow>
+      <mesh position={[-module.size[0] * 0.43, -0.09, 0.125]} castShadow>
         <sphereGeometry args={[0.045, 18, 10]} />
         <meshStandardMaterial
+          ref={indicatorMaterialRef}
           color={isConfigured ? '#7df1b4' : '#75808a'}
           emissive={isConfigured ? '#2fd684' : '#111827'}
           emissiveIntensity={indicatorGlow}
         />
       </mesh>
 
-      <mesh position={[module.position[0] + module.size[0] * 0.42, module.position[1] - 0.09, z + 0.13]} castShadow>
+      <mesh position={[module.size[0] * 0.42, -0.09, 0.13]} castShadow>
         <boxGeometry args={[0.18, 0.052, 0.052]} />
         <meshStandardMaterial color="#9aa4af" roughness={0.28} metalness={0.82} />
       </mesh>
 
-      <mesh position={[module.position[0], module.position[1] - module.size[1] * 0.33, z + 0.13]} castShadow>
+      <mesh position={[0, -module.size[1] * 0.33, 0.13]} castShadow>
         <boxGeometry args={[module.size[0] - 0.34, 0.025, 0.035]} />
         <meshStandardMaterial color="#06080a" roughness={0.56} metalness={0.36} />
       </mesh>
 
+      <mesh ref={scanMeshRef} position={[-module.size[0] * 0.44, 0, 0.145]}>
+        <boxGeometry args={[0.16, module.size[1] - 0.1, 0.018]} />
+        <meshStandardMaterial
+          ref={scanMaterialRef}
+          color="#e6fff8"
+          emissive={module.color}
+          emissiveIntensity={1.4}
+          opacity={0}
+          transparent
+        />
+      </mesh>
+
       {!isDoorClosed && canShowLabel && (
-        <Html center distanceFactor={8} position={[module.position[0], module.position[1] + 0.005, z + 0.18]} className="module-label">
+        <Html center distanceFactor={8} position={[0, 0.005, 0.18]} className="module-label">
           {selectedOption ? selectedOption.name : module.short}
         </Html>
       )}
@@ -176,6 +277,13 @@ function DoorPanelSegment({ y }) {
 
 function CabinetDoor({ isDoorClosed }) {
   const doorRef = useRef(null);
+  const doorPulseRef = useRef(0);
+  const edgeMaterialRef = useRef(null);
+  const handleMaterialRef = useRef(null);
+
+  useEffect(() => {
+    doorPulseRef.current = 1;
+  }, [isDoorClosed]);
 
   useFrame((_, delta) => {
     if (!doorRef.current) {
@@ -183,7 +291,25 @@ function CabinetDoor({ isDoorClosed }) {
     }
 
     const targetAngle = isDoorClosed ? 0 : -1.12;
-    doorRef.current.rotation.y = MathUtils.damp(doorRef.current.rotation.y, targetAngle, 5.2, delta);
+    const pulse = doorPulseRef.current;
+    const flash = pulse > 0 ? Math.sin((1 - pulse) * Math.PI) : 0;
+
+    doorPulseRef.current = Math.max(0, pulse - delta * 1.05);
+    doorRef.current.rotation.y = MathUtils.damp(
+      doorRef.current.rotation.y,
+      targetAngle,
+      isDoorClosed ? 2.35 : 2.9,
+      delta,
+    );
+
+    if (edgeMaterialRef.current) {
+      edgeMaterialRef.current.emissiveIntensity = MathUtils.damp(edgeMaterialRef.current.emissiveIntensity, 0.08 + flash * 0.75, 8, delta);
+    }
+
+    if (handleMaterialRef.current) {
+      handleMaterialRef.current.emissiveIntensity = MathUtils.damp(handleMaterialRef.current.emissiveIntensity, 0.04 + flash * 0.95, 8, delta);
+    }
+
   });
 
   return (
@@ -220,11 +346,11 @@ function CabinetDoor({ isDoorClosed }) {
         </mesh>
         <mesh position={[3.03, 0, 0.1]} castShadow>
           <boxGeometry args={[0.08, 4.6, 0.12]} />
-          <meshStandardMaterial color="#0a0d12" roughness={0.35} metalness={0.84} />
+          <meshStandardMaterial ref={edgeMaterialRef} color="#0a0d12" emissive="#2ea698" emissiveIntensity={0.08} roughness={0.35} metalness={0.84} />
         </mesh>
         <mesh position={[2.86, 0.12, 0.19]} castShadow>
           <boxGeometry args={[0.08, 0.78, 0.07]} />
-          <meshStandardMaterial color="#555f6b" roughness={0.24} metalness={0.88} />
+          <meshStandardMaterial ref={handleMaterialRef} color="#555f6b" emissive="#89f6d0" emissiveIntensity={0.04} roughness={0.24} metalness={0.88} />
         </mesh>
       </group>
     </group>
