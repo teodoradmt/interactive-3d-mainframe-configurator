@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Save } from 'lucide-react';
+import { AuthPage } from '../components/AuthPage.jsx';
 import { MainframeScene } from '../components/MainframeScene.jsx';
 import { MainframeChat } from '../components/MainframeChat.jsx';
 import { MainframeBackgroundPanel } from '../components/MainframeBackgroundPanel.jsx';
 import { MainframeDesignPanel } from '../components/MainframeDesignPanel.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
+import { ProfileButton } from '../components/ProfileButton.jsx';
+import { ProfilePage } from '../components/ProfilePage.jsx';
+import { SaveConfigurationPage } from '../components/SaveConfigurationPage.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
 import { getMainframeDesign, mainframeDesigns } from '../config/mainframeDesigns.js';
 import { isSelectionComplete, mergeModulePresentation } from '../config/modulePresentation.js';
-import { fetchAiRecommendation, fetchEstimate, fetchModules } from '../services/mainframeApi.js';
+import {
+  fetchAiRecommendation,
+  fetchCurrentUser,
+  fetchEstimate,
+  fetchModules,
+  saveConfiguration,
+} from '../services/mainframeApi.js';
 
 const emptyTotals = {
   total: 0,
@@ -26,6 +37,7 @@ const defaultSceneBackground = {
   imageUrl: '',
   imageName: '',
 };
+const authTokenStorageKey = 'mainframe-auth-token';
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -46,6 +58,13 @@ export function Configurator() {
   const [aiModel, setAiModel] = useState('');
   const [aiError, setAiError] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(authTokenStorageKey) ?? '');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(authToken));
+  const [view, setView] = useState('configurator');
+  const [authMode, setAuthMode] = useState('login');
+  const [authReason, setAuthReason] = useState('');
+  const [authRedirectView, setAuthRedirectView] = useState('profile');
   const applySequenceRef = useRef(0);
   const backgroundImageUrlRef = useRef('');
 
@@ -75,6 +94,44 @@ export function Configurator() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadCurrentUser() {
+      if (!authToken) {
+        setCurrentUser(null);
+        setIsAuthLoading(false);
+        return;
+      }
+
+      setIsAuthLoading(true);
+
+      try {
+        const result = await fetchCurrentUser(authToken);
+
+        if (!ignore) {
+          setCurrentUser(result.user);
+        }
+      } catch {
+        if (!ignore) {
+          window.localStorage.removeItem(authTokenStorageKey);
+          setAuthToken('');
+          setCurrentUser(null);
+        }
+      } finally {
+        if (!ignore) {
+          setIsAuthLoading(false);
+        }
+      }
+    }
+
+    loadCurrentUser();
+
+    return () => {
+      ignore = true;
+    };
+  }, [authToken]);
 
   useEffect(() => () => {
     if (backgroundImageUrlRef.current) {
@@ -264,6 +321,114 @@ export function Configurator() {
     }
   };
 
+  const openAuth = ({ mode = 'login', reason = '', redirectView = 'profile' } = {}) => {
+    setAuthMode(mode);
+    setAuthReason(reason);
+    setAuthRedirectView(redirectView);
+    setView('auth');
+  };
+
+  const openSaveConfiguration = () => {
+    if (!isConfigurationComplete) {
+      setError('Завърши всички модули преди запазване на конфигурация.');
+      return;
+    }
+
+    setError('');
+
+    if (!currentUser) {
+      openAuth({
+        reason: 'За да запазиш тази конфигурация, влез в профила си или създай нов профил.',
+        redirectView: 'save',
+      });
+      return;
+    }
+
+    setView('save');
+  };
+
+  const handleAuthSuccess = ({ token, user }) => {
+    window.localStorage.setItem(authTokenStorageKey, token);
+    setAuthToken(token);
+    setCurrentUser(user);
+    setView(authRedirectView === 'save' && isConfigurationComplete ? 'save' : 'profile');
+  };
+
+  const handleLogout = () => {
+    window.localStorage.removeItem(authTokenStorageKey);
+    setAuthToken('');
+    setCurrentUser(null);
+    setView('configurator');
+  };
+
+  const handleSaveConfiguration = (payload) => saveConfiguration(authToken, payload);
+
+  const handleLoadConfiguration = (configuration) => {
+    applySequenceRef.current += 1;
+    setSelection(configuration.selection);
+    setActiveModule(Object.keys(configuration.selection)[0] ?? modules[0]?.id ?? null);
+    setSelectedDesignId(configuration.designId || mainframeDesigns[0].id);
+    setIsDoorOpen(false);
+    setAiRecommendation('');
+    setAiModel('');
+    setAiError('');
+
+    if (backgroundImageUrlRef.current) {
+      URL.revokeObjectURL(backgroundImageUrlRef.current);
+      backgroundImageUrlRef.current = '';
+    }
+
+    setSceneBackground({
+      type: 'color',
+      color: configuration.background?.color ?? defaultSceneBackground.color,
+      imageUrl: '',
+      imageName: configuration.background?.imageName ?? '',
+    });
+    setView('configurator');
+  };
+
+  if (view === 'auth') {
+    return (
+      <AuthPage
+        mode={authMode}
+        onAuthSuccess={handleAuthSuccess}
+        onBack={() => setView('configurator')}
+        onModeChange={setAuthMode}
+        reason={authReason}
+      />
+    );
+  }
+
+  if (view === 'profile' && currentUser) {
+    return (
+      <ProfilePage
+        authToken={authToken}
+        currentUser={currentUser}
+        onBack={() => setView('configurator')}
+        onLoadConfiguration={handleLoadConfiguration}
+        onLogout={handleLogout}
+        onUpdateUser={setCurrentUser}
+      />
+    );
+  }
+
+  if (view === 'save' && currentUser) {
+    return (
+      <SaveConfigurationPage
+        currentUser={currentUser}
+        isComplete={isConfigurationComplete}
+        modules={modules}
+        onBack={() => setView('configurator')}
+        onGoToProfile={() => setView('profile')}
+        onSaveConfiguration={handleSaveConfiguration}
+        sceneBackground={sceneBackground}
+        selectedDesign={selectedDesign}
+        selection={selection}
+        totals={totals}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
       <section className="stage">
@@ -283,6 +448,19 @@ export function Configurator() {
               designs={mainframeDesigns}
               onSelectDesign={setSelectedDesignId}
               selectedDesignId={selectedDesignId}
+            />
+            <button className="save-config-trigger" onClick={openSaveConfiguration} type="button">
+              <Save size={17} />
+              Запази
+            </button>
+            <ProfileButton
+              currentUser={currentUser}
+              isLoading={isAuthLoading}
+              onOpenAuth={() => openAuth({
+                reason: 'Влез или се регистрирай, за да виждаш запазените си конфигурации.',
+                redirectView: 'profile',
+              })}
+              onOpenProfile={() => setView('profile')}
             />
           </div>
         </div>

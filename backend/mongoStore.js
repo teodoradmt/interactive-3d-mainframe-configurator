@@ -1,13 +1,17 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { modules as defaultModules } from './mainframeData.js';
 
 const mongodbUri = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017';
 const dbName = process.env.MONGODB_DB ?? 'Mainframe-ConfiguratorDB';
 const modulesCollectionName = process.env.MONGODB_MODULES_COLLECTION ?? 'modules';
+const usersCollectionName = process.env.MONGODB_USERS_COLLECTION ?? 'users';
+const sessionsCollectionName = process.env.MONGODB_SESSIONS_COLLECTION ?? 'sessions';
+const configurationsCollectionName = process.env.MONGODB_CONFIGURATIONS_COLLECTION ?? 'configurations';
 
 let client;
 let connectionPromise;
 let seedPromise;
+let accountIndexesPromise;
 let fallbackWarningShown = false;
 
 function getClient() {
@@ -22,8 +26,66 @@ function getClient() {
 }
 
 async function getModulesCollection() {
+  return getCollection(modulesCollectionName);
+}
+
+async function getDatabase() {
   const mongoClient = await getClient();
-  return mongoClient.db(dbName).collection(modulesCollectionName);
+  return mongoClient.db(dbName);
+}
+
+async function getCollection(collectionName) {
+  const database = await getDatabase();
+  return database.collection(collectionName);
+}
+
+function toObjectId(value) {
+  if (value instanceof ObjectId) {
+    return value;
+  }
+
+  if (ObjectId.isValid(value)) {
+    return new ObjectId(value);
+  }
+
+  return null;
+}
+
+function serializeUser(user) {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user._id.toString(),
+    email: user.email,
+    profileName: user.profileName,
+    workplace: user.workplace ?? '',
+    avatarColor: user.avatarColor ?? '#2ea698',
+    avatarImage: user.avatarImage ?? '',
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+function serializeConfiguration(configuration) {
+  if (!configuration) {
+    return null;
+  }
+
+  return {
+    id: configuration._id.toString(),
+    userId: configuration.userId.toString(),
+    name: configuration.name,
+    selection: configuration.selection,
+    totals: configuration.totals,
+    designId: configuration.designId ?? '',
+    designName: configuration.designName ?? '',
+    background: configuration.background ?? null,
+    modulesSnapshot: configuration.modulesSnapshot ?? [],
+    createdAt: configuration.createdAt,
+    updatedAt: configuration.updatedAt,
+  };
 }
 
 function cloneModuleForMongo(module, order) {
@@ -48,6 +110,31 @@ function stripMongoFields(module) {
 async function createIndexes(collection) {
   await collection.createIndex({ id: 1 }, { unique: true });
   await collection.createIndex({ order: 1 });
+}
+
+async function ensureAccountIndexes() {
+  accountIndexesPromise ??= (async () => {
+    const database = await getDatabase();
+
+    await Promise.all([
+      database.collection(usersCollectionName).createIndex({ email: 1 }, { unique: true }),
+      database.collection(sessionsCollectionName).createIndex({ tokenHash: 1 }, { unique: true }),
+      database.collection(sessionsCollectionName).createIndex({ userId: 1 }),
+      database.collection(sessionsCollectionName).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+      database.collection(configurationsCollectionName).createIndex({ userId: 1, updatedAt: -1 }),
+      database
+        .collection(configurationsCollectionName)
+        .createIndex({ userId: 1, normalizedName: 1 }, { unique: true }),
+    ]);
+  })();
+
+  try {
+    return await accountIndexesPromise;
+  } catch (error) {
+    accountIndexesPromise = undefined;
+    connectionPromise = undefined;
+    throw error;
+  }
 }
 
 async function writeDefaultModules(collection) {
@@ -126,6 +213,217 @@ export async function seedDefaultModules() {
   return writeDefaultModules(collection);
 }
 
+export async function createUser({
+  avatarColor,
+  avatarImage = '',
+  email,
+  passwordDigest,
+  passwordHash,
+  passwordIterations,
+  passwordSalt,
+  profileName,
+  workplace = '',
+}) {
+  await ensureAccountIndexes();
+
+  const now = new Date();
+  const collection = await getCollection(usersCollectionName);
+  const user = {
+    avatarColor,
+    avatarImage,
+    createdAt: now,
+    email,
+    passwordDigest,
+    passwordHash,
+    passwordIterations,
+    passwordSalt,
+    profileName,
+    updatedAt: now,
+    workplace,
+  };
+  const result = await collection.insertOne(user);
+
+  return serializeUser({ ...user, _id: result.insertedId });
+}
+
+export async function findUserByEmail(email) {
+  await ensureAccountIndexes();
+
+  const collection = await getCollection(usersCollectionName);
+  return collection.findOne({ email });
+}
+
+export async function findUserById(userId) {
+  await ensureAccountIndexes();
+
+  const objectId = toObjectId(userId);
+
+  if (!objectId) {
+    return null;
+  }
+
+  const collection = await getCollection(usersCollectionName);
+  return collection.findOne({ _id: objectId });
+}
+
+export async function getPublicUserById(userId) {
+  return serializeUser(await findUserById(userId));
+}
+
+export async function updateUserProfile(userId, updates) {
+  await ensureAccountIndexes();
+
+  const objectId = toObjectId(userId);
+
+  if (!objectId) {
+    return null;
+  }
+
+  const collection = await getCollection(usersCollectionName);
+  await collection.updateOne(
+    { _id: objectId },
+    {
+      $set: {
+        ...updates,
+        updatedAt: new Date(),
+      },
+    },
+  );
+
+  return serializeUser(await collection.findOne({ _id: objectId }));
+}
+
+export async function createSession({ expiresAt, tokenHash, userId }) {
+  await ensureAccountIndexes();
+
+  const objectId = toObjectId(userId);
+
+  if (!objectId) {
+    return null;
+  }
+
+  const now = new Date();
+  const collection = await getCollection(sessionsCollectionName);
+  await collection.insertOne({
+    createdAt: now,
+    expiresAt,
+    tokenHash,
+    userId: objectId,
+  });
+
+  return {
+    expiresAt,
+  };
+}
+
+export async function findSessionByTokenHash(tokenHash) {
+  await ensureAccountIndexes();
+
+  const collection = await getCollection(sessionsCollectionName);
+  return collection.findOne({ tokenHash });
+}
+
+export async function deleteSessionByTokenHash(tokenHash) {
+  await ensureAccountIndexes();
+
+  const collection = await getCollection(sessionsCollectionName);
+  return collection.deleteOne({ tokenHash });
+}
+
+export async function saveUserConfiguration(userId, configuration) {
+  await ensureAccountIndexes();
+
+  const objectId = toObjectId(userId);
+
+  if (!objectId) {
+    return null;
+  }
+
+  const now = new Date();
+  const collection = await getCollection(configurationsCollectionName);
+  const normalizedName = configuration.name.trim().toLowerCase();
+  const filter = {
+    normalizedName,
+    userId: objectId,
+  };
+
+  await collection.updateOne(
+    filter,
+    {
+      $set: {
+        background: configuration.background,
+        designId: configuration.designId,
+        designName: configuration.designName,
+        modulesSnapshot: configuration.modulesSnapshot,
+        name: configuration.name,
+        normalizedName,
+        selection: configuration.selection,
+        totals: configuration.totals,
+        updatedAt: now,
+      },
+      $setOnInsert: {
+        createdAt: now,
+        userId: objectId,
+      },
+    },
+    { upsert: true },
+  );
+
+  return serializeConfiguration(await collection.findOne(filter));
+}
+
+export async function getUserConfigurations(userId) {
+  await ensureAccountIndexes();
+
+  const objectId = toObjectId(userId);
+
+  if (!objectId) {
+    return [];
+  }
+
+  const collection = await getCollection(configurationsCollectionName);
+  const configurations = await collection
+    .find({ userId: objectId })
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .toArray();
+
+  return configurations.map(serializeConfiguration);
+}
+
+export async function getUserConfigurationById(userId, configurationId) {
+  await ensureAccountIndexes();
+
+  const userObjectId = toObjectId(userId);
+  const configurationObjectId = toObjectId(configurationId);
+
+  if (!userObjectId || !configurationObjectId) {
+    return null;
+  }
+
+  const collection = await getCollection(configurationsCollectionName);
+  return serializeConfiguration(await collection.findOne({
+    _id: configurationObjectId,
+    userId: userObjectId,
+  }));
+}
+
+export async function deleteUserConfiguration(userId, configurationId) {
+  await ensureAccountIndexes();
+
+  const userObjectId = toObjectId(userId);
+  const configurationObjectId = toObjectId(configurationId);
+
+  if (!userObjectId || !configurationObjectId) {
+    return { deletedCount: 0 };
+  }
+
+  const collection = await getCollection(configurationsCollectionName);
+  return collection.deleteOne({
+    _id: configurationObjectId,
+    userId: userObjectId,
+  });
+}
+
 export async function getDatabaseStatus() {
   try {
     const mongoClient = await getClient();
@@ -160,4 +458,5 @@ export async function closeMongoConnection() {
   client = undefined;
   connectionPromise = undefined;
   seedPromise = undefined;
+  accountIndexesPromise = undefined;
 }

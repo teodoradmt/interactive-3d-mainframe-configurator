@@ -6,6 +6,11 @@ export const currency = new Intl.NumberFormat('bg-BG', {
 
 export const number = new Intl.NumberFormat('bg-BG');
 
+export const dateTime = new Intl.DateTimeFormat('bg-BG', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
 export function formatOptionSpec(option) {
   if (option.spec) {
     return option.spec;

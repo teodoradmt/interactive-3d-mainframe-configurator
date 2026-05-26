@@ -36,5 +36,7 @@ This keeps business data, API communication, React state, UI controls, and Three
 - The first configuration dimension compares IBM z15, IBM z16, and IBM z17 style generations; prices remain project demo values.
 - When one option is selected for every module, the frontend asks the backend for the estimate.
 - The mainframe door then closes automatically to visualize a completed configuration.
+- Users can register, sign in, edit a profile, and save named configurations in MongoDB.
+- Saved configurations can be loaded back into the configurator, exported as JSON, or opened in a print/PDF view.
 - When a configuration is complete, the user can request a local Mistral analysis through `/api/ai-recommendation`.
 - The `Mainframe4o` chatbot can answer free-form business, budget, and workload questions through `/api/mainframe4o-chat`.
