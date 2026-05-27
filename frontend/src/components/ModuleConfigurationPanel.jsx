@@ -1,9 +1,10 @@
-import { Check } from 'lucide-react';
+import { Check, Save } from 'lucide-react';
 import { currency, formatOptionSpec } from '../utils/formatters.js';
 
 export function ModuleConfigurationPanel({
   activeModule,
   modules,
+  onSaveConfiguration,
   selection,
   selectedCount,
   setActiveModule,
@@ -13,9 +14,15 @@ export function ModuleConfigurationPanel({
     <>
       <div className="panel-head">
         <h2>Конфигурация</h2>
-        <span>
-          {selectedCount}/{modules.length || 0} избрани
-        </span>
+        <div className="panel-head-actions">
+          <span>
+            {selectedCount}/{modules.length || 0} избрани
+          </span>
+          <button className="config-save-action" onClick={onSaveConfiguration} type="button">
+            <Save size={16} />
+            Запази
+          </button>
+        </div>
       </div>
 
       <div className="module-list">

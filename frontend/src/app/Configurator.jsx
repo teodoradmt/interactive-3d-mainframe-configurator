@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
 import { AuthPage } from '../components/AuthPage.jsx';
 import { MainframeScene } from '../components/MainframeScene.jsx';
 import { MainframeChat } from '../components/MainframeChat.jsx';
@@ -281,17 +280,22 @@ export function Configurator() {
     setAiError('');
   };
 
-  const applySuggestedSelection = async (suggestedSelection) => {
+  const getValidSelection = (sourceSelection) => {
     const nextSelection = {};
 
     modules.forEach((module) => {
-      const optionIndex = Number(suggestedSelection[module.id]);
+      const optionIndex = Number(sourceSelection?.[module.id]);
 
       if (Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < module.options.length) {
         nextSelection[module.id] = optionIndex;
       }
     });
 
+    return nextSelection;
+  };
+
+  const applySelectionGradually = async (sourceSelection) => {
+    const nextSelection = getValidSelection(sourceSelection);
     const sequence = applySequenceRef.current + 1;
 
     applySequenceRef.current = sequence;
@@ -320,6 +324,8 @@ export function Configurator() {
       await wait(applyStepDelayMs);
     }
   };
+
+  const applySuggestedSelection = (suggestedSelection) => applySelectionGradually(suggestedSelection);
 
   const openAuth = ({ mode = 'login', reason = '', redirectView = 'profile' } = {}) => {
     setAuthMode(mode);
@@ -363,15 +369,9 @@ export function Configurator() {
 
   const handleSaveConfiguration = (payload) => saveConfiguration(authToken, payload);
 
-  const handleLoadConfiguration = (configuration) => {
-    applySequenceRef.current += 1;
-    setSelection(configuration.selection);
-    setActiveModule(Object.keys(configuration.selection)[0] ?? modules[0]?.id ?? null);
+  const handleLoadConfiguration = async (configuration) => {
     setSelectedDesignId(configuration.designId || mainframeDesigns[0].id);
-    setIsDoorOpen(false);
-    setAiRecommendation('');
-    setAiModel('');
-    setAiError('');
+    setError('');
 
     if (backgroundImageUrlRef.current) {
       URL.revokeObjectURL(backgroundImageUrlRef.current);
@@ -385,6 +385,7 @@ export function Configurator() {
       imageName: configuration.background?.imageName ?? '',
     });
     setView('configurator');
+    await applySelectionGradually(configuration.selection);
   };
 
   if (view === 'auth') {
@@ -433,7 +434,7 @@ export function Configurator() {
     <main className="app-shell">
       <section className="stage">
         <div className="titlebar">
-          <div>
+          <div className="titlebar-heading">
             <h1>Interactive 3D Mainframe Configurator</h1>
           </div>
           <div className="title-actions">
@@ -449,19 +450,17 @@ export function Configurator() {
               onSelectDesign={setSelectedDesignId}
               selectedDesignId={selectedDesignId}
             />
-            <button className="save-config-trigger" onClick={openSaveConfiguration} type="button">
-              <Save size={17} />
-              Запази
-            </button>
-            <ProfileButton
-              currentUser={currentUser}
-              isLoading={isAuthLoading}
-              onOpenAuth={() => openAuth({
-                reason: 'Влез или се регистрирай, за да виждаш запазените си конфигурации.',
-                redirectView: 'profile',
-              })}
-              onOpenProfile={() => setView('profile')}
-            />
+            <div className="title-profile-group">
+              <ProfileButton
+                currentUser={currentUser}
+                isLoading={isAuthLoading}
+                onOpenAuth={() => openAuth({
+                  reason: 'Влез или се регистрирай, за да виждаш запазените си конфигурации.',
+                  redirectView: 'profile',
+                })}
+                onOpenProfile={() => setView('profile')}
+              />
+            </div>
           </div>
         </div>
 
@@ -484,6 +483,7 @@ export function Configurator() {
         <ModuleConfigurationPanel
           activeModule={activeModule}
           modules={modules}
+          onSaveConfiguration={openSaveConfiguration}
           selectedCount={selectedCount}
           selection={selection}
           setActiveModule={setActiveModule}

@@ -22,6 +22,10 @@ import {
 import { currency, dateTime } from '../utils/formatters.js';
 
 const avatarColors = ['#2ea698', '#88d9ef', '#f5c15c', '#d86c61', '#7d8df1', '#6f7b82'];
+const avatarMaxBytes = 180_000;
+const avatarMaxDimensions = [720, 560, 420, 320, 240];
+const avatarMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const avatarQualitySteps = [0.88, 0.78, 0.68, 0.58, 0.48];
 
 function getInitials(user) {
   const label = user?.profileName || user?.email || 'П';
@@ -63,6 +67,102 @@ function readAvatarFile(file) {
     reader.onerror = () => reject(new Error('Снимката не може да бъде прочетена.'));
     reader.readAsDataURL(file);
   });
+}
+
+function isSupportedAvatarFile(file) {
+  const mimeType = String(file.type ?? '').toLowerCase();
+  const fileName = String(file.name ?? '').toLowerCase();
+
+  return avatarMimeTypes.has(mimeType) || /\.(png|jpe?g|webp)$/.test(fileName);
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Снимката не може да бъде отворена. Избери друг PNG, JPG или WebP файл.'));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), mimeType, quality);
+  });
+}
+
+async function renderCompressedAvatar(image, maxDimension, mimeType, quality) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error('Снимката няма валидни размери.');
+  }
+
+  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    throw new Error('Браузърът не може да обработи тази снимка.');
+  }
+
+  if (mimeType === 'image/jpeg') {
+    context.fillStyle = '#101113';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvasToBlob(canvas, mimeType, quality);
+}
+
+async function prepareAvatarImage(file) {
+  const mimeType = String(file.type ?? '').toLowerCase();
+
+  if (file.size <= avatarMaxBytes && avatarMimeTypes.has(mimeType)) {
+    return readAvatarFile(file);
+  }
+
+  const image = await loadImageFromFile(file);
+  let smallestBlob = null;
+
+  for (const maxDimension of avatarMaxDimensions) {
+    for (const outputType of ['image/webp', 'image/jpeg']) {
+      for (const quality of avatarQualitySteps) {
+        const blob = await renderCompressedAvatar(image, maxDimension, outputType, quality);
+
+        if (!blob || !avatarMimeTypes.has(blob.type)) {
+          continue;
+        }
+
+        if (!smallestBlob || blob.size < smallestBlob.size) {
+          smallestBlob = blob;
+        }
+
+        if (blob.size <= avatarMaxBytes) {
+          return readAvatarFile(blob);
+        }
+      }
+    }
+  }
+
+  if (smallestBlob && smallestBlob.size <= avatarMaxBytes) {
+    return readAvatarFile(smallestBlob);
+  }
+
+  throw new Error('Снимката не може да бъде намалена достатъчно. Избери по-малък PNG, JPG или WebP файл.');
 }
 
 function downloadJson(payload) {
@@ -152,7 +252,11 @@ export function ProfilePage({
   const [profileMessage, setProfileMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [activeActionId, setActiveActionId] = useState('');
+  const [confirmation, setConfirmation] = useState(null);
+  const [confirmationInput, setConfirmationInput] = useState('');
+  const [confirmationError, setConfirmationError] = useState('');
 
   useEffect(() => {
     setProfileForm({
@@ -181,6 +285,26 @@ export function ProfilePage({
     loadConfigurations();
   }, [loadConfigurations]);
 
+  useEffect(() => {
+    if (!confirmation) {
+      return undefined;
+    }
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape' && !isConfirming) {
+        setConfirmation(null);
+        setConfirmationInput('');
+        setConfirmationError('');
+      }
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [confirmation, isConfirming]);
+
   const updateField = (field, value) => {
     setProfileForm((current) => ({
       ...current,
@@ -191,23 +315,41 @@ export function ProfilePage({
 
   const chooseAvatar = async (event) => {
     const file = event.target.files?.[0];
+    event.target.value = '';
 
     if (!file) {
       return;
     }
 
-    if (!file.type.startsWith('image/') || file.size > 180_000) {
+    if (!isSupportedAvatarFile(file)) {
       setError('Избери PNG, JPG или WebP снимка до около 180 KB.');
       return;
     }
 
     try {
-      const avatarImage = await readAvatarFile(file);
+      const avatarImage = await prepareAvatarImage(file);
       updateField('avatarImage', avatarImage);
       setError('');
     } catch (avatarError) {
       setError(avatarError.message);
     }
+  };
+
+  const closeConfirmation = () => {
+    setConfirmation(null);
+    setConfirmationInput('');
+    setConfirmationError('');
+  };
+
+  const requestRemoveAvatarImage = () => {
+    setConfirmation({
+      confirmLabel: 'Махни снимката',
+      message: 'Ще останат инициалите и избраният цвят на аватара.',
+      title: 'Махане на профилна снимка',
+      type: 'remove-avatar',
+    });
+    setConfirmationInput('');
+    setConfirmationError('');
   };
 
   const saveProfile = async (event) => {
@@ -269,33 +411,83 @@ export function ProfilePage({
     }
   };
 
-  const deleteConfiguration = async (configuration) => {
-    if (!window.confirm(`Да изтрия ли „${configuration.name}“?`)) {
+  const requestDeleteConfiguration = (configuration) => {
+    const configurationName = String(configuration.name ?? '');
+
+    setConfirmation({
+      configuration,
+      confirmLabel: 'Изтрий',
+      message: `Това ще изтрие „${configurationName}“ от запазените конфигурации.`,
+      requireName: configurationName,
+      title: 'Изтриване на конфигурация',
+      type: 'delete-configuration',
+    });
+    setConfirmationInput('');
+    setConfirmationError('');
+  };
+
+  const requestSignOut = () => {
+    setConfirmation({
+      confirmLabel: 'Изход',
+      message: 'Сигурни ли сте че искате да излезете?',
+      title: 'Изход от профила',
+      type: 'logout',
+    });
+    setConfirmationInput('');
+    setConfirmationError('');
+  };
+
+  const confirmAction = async (event) => {
+    event.preventDefault();
+
+    if (!confirmation || isConfirming) {
       return;
     }
 
-    setActiveActionId(configuration.id);
-    setError('');
-
-    try {
-      await deleteSavedConfiguration(authToken, configuration.id);
-      await loadConfigurations();
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setActiveActionId('');
+    if (confirmation.requireName && confirmationInput.trim() !== confirmation.requireName) {
+      setConfirmationError('Името не съвпада. Провери главните/малките букви и интервалите.');
+      return;
     }
-  };
 
-  const signOut = async () => {
+    if (confirmation.type === 'remove-avatar') {
+      updateField('avatarImage', '');
+      closeConfirmation();
+      return;
+    }
+
+    setIsConfirming(true);
     setError('');
+    setConfirmationError('');
 
-    try {
-      await logoutUser(authToken);
-    } catch {
-      // The local session still has to be cleared even if the backend token is already gone.
-    } finally {
-      onLogout();
+    if (confirmation.type === 'delete-configuration') {
+      const configuration = confirmation.configuration;
+
+      setActiveActionId(configuration.id);
+
+      try {
+        await deleteSavedConfiguration(authToken, configuration.id);
+        await loadConfigurations();
+        closeConfirmation();
+      } catch (requestError) {
+        setConfirmationError(requestError.message);
+      } finally {
+        setActiveActionId('');
+        setIsConfirming(false);
+      }
+
+      return;
+    }
+
+    if (confirmation.type === 'logout') {
+      try {
+        await logoutUser(authToken);
+      } catch {
+        // The local session still has to be cleared even if the backend token is already gone.
+      } finally {
+        setIsConfirming(false);
+        closeConfirmation();
+        onLogout();
+      }
     }
   };
 
@@ -305,10 +497,6 @@ export function ProfilePage({
         <button className="ghost-button" onClick={onBack} type="button">
           <ArrowLeft size={17} />
           Към конфигуратора
-        </button>
-        <button className="ghost-button danger" onClick={signOut} type="button">
-          <LogOut size={17} />
-          Изход
         </button>
       </div>
 
@@ -328,7 +516,7 @@ export function ProfilePage({
             {profileForm.avatarImage && (
               <button
                 className="secondary-action icon-action"
-                onClick={() => updateField('avatarImage', '')}
+                onClick={requestRemoveAvatarImage}
                 type="button"
               >
                 <RefreshCcw size={17} />
@@ -383,6 +571,11 @@ export function ProfilePage({
           <button className="primary-action" disabled={isSavingProfile} type="submit">
             <Save size={17} />
             {isSavingProfile ? 'Запазване...' : 'Запази профила'}
+          </button>
+
+          <button className="secondary-action danger profile-logout-action" onClick={requestSignOut} type="button">
+            <LogOut size={17} />
+            Изход
           </button>
         </form>
 
@@ -453,7 +646,7 @@ export function ProfilePage({
                   <button
                     className="secondary-action icon-action danger"
                     disabled={activeActionId === configuration.id}
-                    onClick={() => deleteConfiguration(configuration)}
+                    onClick={() => requestDeleteConfiguration(configuration)}
                     type="button"
                   >
                     <Trash2 size={16} />
@@ -465,6 +658,61 @@ export function ProfilePage({
           </div>
         </section>
       </section>
+
+      {confirmation && (
+        <div className="confirmation-backdrop">
+          <form className="confirmation-dialog" onSubmit={confirmAction}>
+            <div className="confirmation-dialog-head">
+              <span className="eyebrow">Потвърждение</span>
+              <h2>{confirmation.title}</h2>
+            </div>
+
+            <p>{confirmation.message}</p>
+
+            {confirmation.requireName && (
+              <label className="field-label">
+                Напишете името на конфигурацията, за да потвърдите изтриването
+                
+                <input
+                  autoComplete="off"
+                  autoFocus
+                  className="confirmation-name-input"
+                  onChange={(event) => {
+                    setConfirmationInput(event.target.value);
+                    setConfirmationError('');
+                  }}
+                  spellCheck="false"
+                  type="text"
+                  value={confirmationInput}
+                />
+              </label>
+            )}
+
+            {confirmationError && <p className="form-error">{confirmationError}</p>}
+
+            <div className="confirmation-actions">
+              <button
+                className="secondary-action"
+                disabled={isConfirming}
+                onClick={closeConfirmation}
+                type="button"
+              >
+                Отказ
+              </button>
+              <button
+                className={`confirmation-confirm ${['delete-configuration', 'logout'].includes(confirmation.type) ? 'danger' : ''}`}
+                disabled={isConfirming}
+                type="submit"
+              >
+                {confirmation.type === 'delete-configuration' && <Trash2 size={16} />}
+                {confirmation.type === 'logout' && <LogOut size={16} />}
+                {confirmation.type === 'remove-avatar' && <RefreshCcw size={16} />}
+                {isConfirming ? 'Моля, изчакай...' : confirmation.confirmLabel}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }
