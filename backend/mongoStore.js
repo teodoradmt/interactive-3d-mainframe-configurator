@@ -88,6 +88,31 @@ function serializeConfiguration(configuration) {
   };
 }
 
+function normalizeConfigurationName(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+async function findExistingConfigurationByName(collection, userId, normalizedName) {
+  const configurations = await collection
+    .find({ userId })
+    .project({ name: 1, normalizedName: 1 })
+    .toArray();
+
+  const existingConfiguration = configurations.find((configuration) => (
+    normalizeConfigurationName(configuration.normalizedName || configuration.name) === normalizedName
+    || normalizeConfigurationName(configuration.name) === normalizedName
+  ));
+
+  if (!existingConfiguration) {
+    return null;
+  }
+
+  return collection.findOne({
+    _id: existingConfiguration._id,
+    userId,
+  });
+}
+
 function cloneModuleForMongo(module, order) {
   return {
     id: module.id,
@@ -341,35 +366,54 @@ export async function saveUserConfiguration(userId, configuration) {
 
   const now = new Date();
   const collection = await getCollection(configurationsCollectionName);
-  const normalizedName = configuration.name.trim().toLowerCase();
-  const filter = {
+  const normalizedName = normalizeConfigurationName(configuration.name);
+  const existingConfiguration = await findExistingConfigurationByName(collection, objectId, normalizedName);
+  const configurationFields = {
+    background: configuration.background,
+    designId: configuration.designId,
+    designName: configuration.designName,
+    modulesSnapshot: configuration.modulesSnapshot,
+    name: configuration.name,
     normalizedName,
-    userId: objectId,
+    selection: configuration.selection,
+    totals: configuration.totals,
+    updatedAt: now,
   };
 
-  await collection.updateOne(
-    filter,
-    {
-      $set: {
-        background: configuration.background,
-        designId: configuration.designId,
-        designName: configuration.designName,
-        modulesSnapshot: configuration.modulesSnapshot,
-        name: configuration.name,
-        normalizedName,
-        selection: configuration.selection,
-        totals: configuration.totals,
-        updatedAt: now,
-      },
-      $setOnInsert: {
-        createdAt: now,
-        userId: objectId,
-      },
-    },
-    { upsert: true },
-  );
+  if (existingConfiguration) {
+    return {
+      configuration: serializeConfiguration(existingConfiguration),
+      status: 'exists',
+    };
+  }
 
-  return serializeConfiguration(await collection.findOne(filter));
+  try {
+    const result = await collection.insertOne({
+      ...configurationFields,
+      createdAt: now,
+      userId: objectId,
+    });
+
+    return {
+      configuration: serializeConfiguration(await collection.findOne({ _id: result.insertedId })),
+      status: 'created',
+    };
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+
+    const duplicateConfiguration = await findExistingConfigurationByName(collection, objectId, normalizedName);
+
+    if (!duplicateConfiguration) {
+      throw error;
+    }
+
+    return {
+      configuration: serializeConfiguration(duplicateConfiguration),
+      status: 'exists',
+    };
+  }
 }
 
 export async function getUserConfigurations(userId) {

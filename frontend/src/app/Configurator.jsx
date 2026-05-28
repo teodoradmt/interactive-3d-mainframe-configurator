@@ -16,6 +16,7 @@ import {
   fetchCurrentUser,
   fetchEstimate,
   fetchModules,
+  fetchSavedConfigurations,
   saveConfiguration,
 } from '../services/mainframeApi.js';
 
@@ -37,6 +38,11 @@ const defaultSceneBackground = {
   imageName: '',
 };
 const authTokenStorageKey = 'mainframe-auth-token';
+const duplicateConfigurationNameMessage = 'Такава конфигурация вече съществува. Сменете името!';
+
+function normalizeConfigurationName(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -367,7 +373,21 @@ export function Configurator() {
     setView('configurator');
   };
 
-  const handleSaveConfiguration = (payload) => saveConfiguration(authToken, payload);
+  const handleSaveConfiguration = async (payload) => {
+    const submittedName = normalizeConfigurationName(payload.name);
+    const result = await fetchSavedConfigurations(authToken);
+    const hasDuplicateName = (result.configurations ?? []).some((configuration) => (
+      normalizeConfigurationName(configuration.name) === submittedName
+    ));
+
+    if (hasDuplicateName) {
+      const duplicateError = new Error(duplicateConfigurationNameMessage);
+      duplicateError.status = 409;
+      throw duplicateError;
+    }
+
+    return saveConfiguration(authToken, payload);
+  };
 
   const handleLoadConfiguration = async (configuration) => {
     setSelectedDesignId(configuration.designId || mainframeDesigns[0].id);

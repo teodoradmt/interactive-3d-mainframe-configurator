@@ -34,6 +34,7 @@ const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 3001);
 const sessionDurationMs = 7 * 24 * 60 * 60 * 1000;
 const defaultAvatarColors = ['#2ea698', '#88d9ef', '#f5c15c', '#d86c61', '#7d8df1'];
+const duplicateConfigurationNameMessage = 'Такава конфигурация вече съществува. Моля изберете друго име';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -368,7 +369,7 @@ async function handleSaveConfiguration(request, response) {
     throw new HttpError(400, 'Добави име на конфигурацията.');
   }
 
-  const configuration = await saveUserConfiguration(user._id, {
+  const saveResult = await saveUserConfiguration(user._id, {
     background: sanitizeBackground(payload.background),
     designId: sanitizeText(payload.designId, { maxLength: 64 }),
     designName: sanitizeText(payload.designName, { maxLength: 80 }),
@@ -378,8 +379,16 @@ async function handleSaveConfiguration(request, response) {
     totals: calculateEstimate(selection, modules),
   });
 
+  if (saveResult.status === 'exists') {
+    throw new HttpError(409, duplicateConfigurationNameMessage, {
+      code: 'CONFIGURATION_NAME_EXISTS',
+      configuration: saveResult.configuration,
+    });
+  }
+
   sendJson(response, 201, {
-    configuration,
+    configuration: saveResult.configuration,
+    status: saveResult.status,
   });
 }
 

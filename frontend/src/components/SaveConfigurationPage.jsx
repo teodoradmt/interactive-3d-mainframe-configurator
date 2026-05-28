@@ -6,6 +6,12 @@ function createDefaultName() {
   return `Mainframe ${new Date().toLocaleDateString('bg-BG')}`;
 }
 
+function normalizeConfigurationName(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+const duplicateNameMessage = 'Конфигурацията вече е създадена.';
+
 export function SaveConfigurationPage({
   currentUser,
   isComplete,
@@ -22,6 +28,7 @@ export function SaveConfigurationPage({
   const [name, setName] = useState(defaultName);
   const [error, setError] = useState('');
   const [savedConfiguration, setSavedConfiguration] = useState(null);
+  const [saveMessage, setSaveMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const selectedModules = useMemo(
@@ -42,32 +49,59 @@ export function SaveConfigurationPage({
   }), [selectedModules]);
   const displayTotals = totals.total > 0 ? totals : previewTotals;
 
-  const save = async (event) => {
-    event.preventDefault();
-
+  const submitSave = async () => {
     if (!isComplete) {
       setError('Завърши всички модули преди запазване.');
       return;
     }
 
+    const submittedName = name.trim();
+
+    if (!submittedName) {
+      setError('Добави име на конфигурацията.');
+      return;
+    }
+
+    if (
+      savedConfiguration
+      && normalizeConfigurationName(submittedName) === normalizeConfigurationName(savedConfiguration.name)
+    ) {
+      setSaveMessage('');
+      setError(duplicateNameMessage);
+      return;
+    }
+
     setIsSaving(true);
     setError('');
+    setSaveMessage('');
 
     try {
       const result = await onSaveConfiguration({
         background: sceneBackground,
         designId: selectedDesign.id,
         designName: selectedDesign.name,
-        name,
+        name: submittedName,
         selection,
       });
 
       setSavedConfiguration(result.configuration);
+      setSaveMessage(`Конфигурацията е запазена като „${result.configuration.name}“.`);
     } catch (requestError) {
+      if (requestError.status === 409) {
+        setSaveMessage('');
+        setError(requestError.message || duplicateNameMessage);
+        return;
+      }
+
       setError(requestError.message);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    await submitSave();
   };
 
   return (
@@ -115,6 +149,7 @@ export function SaveConfigurationPage({
                 onChange={(event) => {
                   setName(event.target.value);
                   setError('');
+                  setSaveMessage('');
                   setSavedConfiguration(null);
                 }}
                 required
@@ -135,10 +170,10 @@ export function SaveConfigurationPage({
           </div>
 
           {error && <p className="form-error">{error}</p>}
-          {savedConfiguration && (
+          {saveMessage && (
             <p className="form-success">
               <Check size={16} />
-              Конфигурацията е запазена като „{savedConfiguration.name}“.
+              {saveMessage}
             </p>
           )}
 
