@@ -14,6 +14,7 @@ const duplicateNameMessage = 'Конфигурацията вече е създ�
 
 export function SaveConfigurationPage({
   currentUser,
+  frameEvaluation,
   isComplete,
   modules,
   onBack,
@@ -21,6 +22,7 @@ export function SaveConfigurationPage({
   onSaveConfiguration,
   sceneBackground,
   selectedDesign,
+  selectedFrameId,
   selection,
   totals,
 }) {
@@ -80,6 +82,15 @@ export function SaveConfigurationPage({
         background: sceneBackground,
         designId: selectedDesign.id,
         designName: selectedDesign.name,
+        frameConfiguration: {
+          effectiveFrameId: frameEvaluation.effectiveFrame.id,
+          effectiveFrameName: frameEvaluation.effectiveFrame.name,
+          isValid: frameEvaluation.isValid,
+          recommendedFrameId: frameEvaluation.recommendedFrame.id,
+          recommendedFrameName: frameEvaluation.recommendedFrame.name,
+          selectedFrameId,
+          warnings: frameEvaluation.warnings,
+        },
         name: submittedName,
         selection,
       });
@@ -160,6 +171,11 @@ export function SaveConfigurationPage({
           </label>
 
           <div className="saved-options-preview">
+            <div>
+              <span>Frame Configuration</span>
+              <strong>{frameEvaluation.effectiveFrame.name}</strong>
+              <small>{frameEvaluation.isValid ? 'Valid infrastructure layout' : 'Warnings need review'}</small>
+            </div>
             {selectedModules.map(({ module, option }) => (
               <div key={module.id}>
                 <span>{module.title}</span>

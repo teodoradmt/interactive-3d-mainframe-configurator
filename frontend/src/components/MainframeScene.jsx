@@ -14,6 +14,99 @@ const DEFAULT_SCENE_BACKGROUND = {
   color: '#101113',
   imageUrl: '',
 };
+const EXTERNAL_SYSTEM_LAYOUT = {
+  externalDASD: {
+    offset: [3.55, -0.92, 1.08],
+    scale: 0.68,
+  },
+  tapeBackup: {
+    offset: [5.05, -0.64, -0.72],
+    scale: 0.72,
+  },
+  cyberVault: {
+    offset: [3.62, -0.98, -2.32],
+    scale: 0.66,
+  },
+};
+const A_FRAME_MODULE_DEFINITIONS = [
+  {
+    id: 'a-frame-pcie-io',
+    sourceModuleId: 'storage',
+    short: 'PCIe I/O',
+    color: '#d99a2b',
+    position: [0, 1.58, 0.18],
+    size: [2.55, 0.42, 0.2],
+  },
+  {
+    id: 'a-frame-cooling',
+    sourceModuleId: 'cooling',
+    short: 'Cooling',
+    color: '#62c7ea',
+    position: [0, 0.92, 0.18],
+    size: [2.55, 0.44, 0.2],
+  },
+  {
+    id: 'a-frame-power',
+    sourceModuleId: 'power',
+    short: 'Power',
+    color: '#25b5a3',
+    position: [0, 0.22, 0.18],
+    size: [2.55, 0.44, 0.2],
+  },
+  {
+    id: 'a-frame-interconnect',
+    sourceModuleId: 'storage',
+    short: 'Interconnect',
+    color: '#8dd7f7',
+    position: [0, -0.5, 0.18],
+    size: [2.55, 0.42, 0.2],
+  },
+  {
+    id: 'a-frame-expansion',
+    sourceModuleId: 'processor',
+    short: 'Expansion',
+    color: '#8f6ee8',
+    position: [0, -1.22, 0.18],
+    size: [2.55, 0.5, 0.2],
+  },
+];
+
+function isExternalModule(module) {
+  return module.required === false || module.category === 'external';
+}
+
+function getSelectedIndex(selection, moduleId) {
+  const selectedIndex = Number(selection[moduleId]);
+
+  return Number.isInteger(selectedIndex) ? selectedIndex : undefined;
+}
+
+function isSelected(selection, moduleId, minimumIndex = 0) {
+  const selectedIndex = getSelectedIndex(selection, moduleId);
+
+  return selectedIndex !== undefined && selectedIndex >= minimumIndex;
+}
+
+function buildAFrameModules(selection, selectedExternalModules) {
+  const hasExternalSystems = selectedExternalModules.length > 0;
+  const hasCyberVault = isSelected(selection, 'cyberVault');
+  const hasTapeLibrary = isSelected(selection, 'tapeBackup');
+  const hasEnterpriseIo = isSelected(selection, 'storage', 2);
+  const hasHighEndCpc = isSelected(selection, 'processor', 2) || isSelected(selection, 'memory', 2);
+
+  const activeByModuleId = {
+    'a-frame-pcie-io': hasEnterpriseIo || hasExternalSystems,
+    'a-frame-cooling': isSelected(selection, 'cooling', 2) || hasHighEndCpc,
+    'a-frame-power': isSelected(selection, 'power', 2) || hasHighEndCpc,
+    'a-frame-interconnect': hasEnterpriseIo || hasExternalSystems || hasTapeLibrary || hasCyberVault,
+    'a-frame-expansion': hasHighEndCpc || hasCyberVault || selectedExternalModules.length > 1,
+  };
+
+  return A_FRAME_MODULE_DEFINITIONS.map((module) => ({
+    ...module,
+    isConfigured: Boolean(activeByModuleId[module.id]),
+  }));
+}
 
 function getCanvasBackgroundStyle(background, fallbackColor) {
   if (background?.type === 'image' && background.imageUrl) {
@@ -80,15 +173,13 @@ function SideVentPattern({ colors }) {
   );
 }
 
-function RackSlotStack({ colors }) {
-  const yPositions = [1.72, 1.08, 0.44, -0.2, -0.84, -1.48];
-
+function RackSlotStack({ colors, modules }) {
   return (
     <group>
-      {yPositions.map((y, index) => (
-        <group key={y} position={[0, y, 0.72]}>
+      {modules.map((module, index) => (
+        <group key={module.id} position={[0, module.position[1], 0.72]}>
           <mesh castShadow receiveShadow>
-            <boxGeometry args={[2.62, 0.48, 0.12]} />
+            <boxGeometry args={[2.62, module.size[1] + 0.02, 0.12]} />
             <meshStandardMaterial color={index % 2 === 0 ? colors.slotA : colors.slotB} roughness={0.46} metalness={0.62} />
           </mesh>
           <mesh position={[0, 0.16, 0.08]} castShadow>
@@ -120,6 +211,7 @@ function ModuleTray({
   selection,
   setActiveModule,
 }) {
+  const selectionKey = module.sourceModuleId ?? module.id;
   const groupRef = useRef(null);
   const trayMaterialRef = useRef(null);
   const stripMaterialRef = useRef(null);
@@ -128,12 +220,15 @@ function ModuleTray({
   const scanMaterialRef = useRef(null);
   const pulseRef = useRef(0);
   const pulseModeRef = useRef('select');
-  const previousSelectedIndexRef = useRef(selection[module.id]);
-  const selectedIndex = selection[module.id];
-  const isConfigured = selectedIndex !== undefined;
-  const isActive = activeModule === module.id;
+  const selectedIndex = module.isConfigured === false
+    ? undefined
+    : module.isConfigured
+      ? (getSelectedIndex(selection, selectionKey) ?? 0)
+      : selection[selectionKey];
+  const previousSelectedIndexRef = useRef(selectedIndex);
+  const isConfigured = module.isConfigured ?? selectedIndex !== undefined;
+  const isActive = activeModule === selectionKey || activeModule === module.id;
   const isVisuallyActive = isActive && !isConfigurationComplete && !isDoorClosed && !isModuleCovered;
-  const selectedOption = isConfigured ? module.options[selectedIndex] : null;
   const z = isModuleCovered ? 0.56 : isVisuallyActive ? 0.9 : 0.78;
   const trayGlow = isModuleCovered ? 0.01 : isVisuallyActive ? 0.22 : isConfigured ? 0.08 : 0.02;
   const stripGlow = isModuleCovered ? 0.03 : isConfigured ? 0.62 : 0.15;
@@ -229,7 +324,7 @@ function ModuleTray({
             return;
           }
 
-          setActiveModule(module.id);
+          setActiveModule(selectionKey);
         }}
       >
         <boxGeometry args={module.size} />
@@ -282,7 +377,7 @@ function ModuleTray({
 
       {canRenderLabel && (
         <Html center distanceFactor={8} position={[0, 0.005, 0.18]} className="module-label">
-          {selectedOption ? selectedOption.name : module.short}
+          {module.short}
         </Html>
       )}
     </group>
@@ -308,10 +403,17 @@ function DoorPanelSegment({ colors, y }) {
   );
 }
 
-function CabinetDoor({ colors, isDoorClosed }) {
+function CabinetDoor({
+  animateOnMount = false,
+  colors,
+  isDoorClosed,
+  side = 'left',
+}) {
   const doorRef = useRef(null);
-  const doorPulseRef = useRef(0);
-  const initialDoorAngleRef = useRef(isDoorClosed ? DOOR_CLOSED_ANGLE : DOOR_OPEN_ANGLE);
+  const isRightDoor = side === 'right';
+  const openAngle = DOOR_OPEN_ANGLE;
+  const doorPulseRef = useRef(animateOnMount && !isDoorClosed ? 1 : 0);
+  const initialDoorAngleRef = useRef(isDoorClosed || animateOnMount ? DOOR_CLOSED_ANGLE : openAngle);
   const previousDoorClosedRef = useRef(isDoorClosed);
   const edgeMaterialRef = useRef(null);
   const handleMaterialRef = useRef(null);
@@ -334,11 +436,11 @@ function CabinetDoor({ colors, isDoorClosed }) {
       return;
     }
 
-    const targetAngle = isDoorClosed ? DOOR_CLOSED_ANGLE : DOOR_OPEN_ANGLE;
+    const targetAngle = isDoorClosed ? DOOR_CLOSED_ANGLE : openAngle;
     const pulse = doorPulseRef.current;
     const progress = 1 - pulse;
     const flash = pulse > 0 ? Math.sin(progress * Math.PI) : 0;
-    const latchMotion = isDoorClosed ? flash * 0.035 : -flash * 0.018;
+    const latchMotion = (isDoorClosed ? flash * 0.035 : -flash * 0.018) * (isRightDoor ? -1 : 1);
 
     doorPulseRef.current = Math.max(0, pulse - delta * 0.9);
     doorRef.current.rotation.y = MathUtils.damp(
@@ -359,7 +461,7 @@ function CabinetDoor({ colors, isDoorClosed }) {
   });
 
   return (
-    <group position={[-1.58, 0.24, 0.88]}>
+    <group position={[isRightDoor ? 1.58 : -1.58, 0.24, 0.88]} scale={[isRightDoor ? -1 : 1, 1, 1]}>
       <mesh position={[0, 0, -0.02]} castShadow>
         <cylinderGeometry args={[0.038, 0.038, 5.28, 22]} />
         <meshStandardMaterial color={colors.hinge} roughness={0.34} metalness={0.9} />
@@ -403,11 +505,208 @@ function CabinetDoor({ colors, isDoorClosed }) {
   );
 }
 
-function ProceduralMainframe({ activeModule, design, modules, selection, setActiveModule, isDoorClosed }) {
+function ExternalConnection({ end, label, start }) {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const dz = end[2] - start[2];
+  const length = Math.hypot(dx, dz);
+  const rotationY = -Math.atan2(dz, dx);
+  const midpoint = [
+    start[0] + dx / 2,
+    start[1] + dy / 2,
+    start[2] + dz / 2,
+  ];
+
+  return (
+    <group position={midpoint} rotation={[0, rotationY, 0]}>
+      {[-0.045, 0.045].map((offset) => (
+        <mesh key={offset} position={[0, offset, 0]} castShadow>
+          <boxGeometry args={[length, 0.026, 0.026]} />
+          <meshStandardMaterial color="#8dd7f7" emissive="#2f88b8" emissiveIntensity={0.34} roughness={0.28} metalness={0.5} />
+        </mesh>
+      ))}
+      <mesh position={[-length / 2, 0, 0]} castShadow>
+        <sphereGeometry args={[0.06, 16, 10]} />
+        <meshStandardMaterial color="#8dd7f7" emissive="#2f88b8" emissiveIntensity={0.3} />
+      </mesh>
+      <mesh position={[length / 2, 0, 0]} castShadow>
+        <boxGeometry args={[0.18, 0.14, 0.08]} />
+        <meshStandardMaterial color="#f5c15c" emissive="#f59e0b" emissiveIntensity={0.32} roughness={0.24} metalness={0.74} />
+      </mesh>
+      {label && (
+        <Html center distanceFactor={9} position={[0, 0.26, 0]} className="module-label">
+          {label}
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function ExternalSystemCabinet({
+  activeModule,
+  module,
+  position,
+  scale,
+  selection,
+  setActiveModule,
+}) {
+  const selectedOption = module.options[selection[module.id]];
+  const isActive = activeModule === module.id;
+  const accent = module.color;
+  const isDasd = module.externalObject === 'dasd';
+  const isTape = module.externalObject === 'tape';
+  const isVault = module.externalObject === 'vault';
+  const cabinetHeight = isTape ? 4.95 : 4.32;
+  const cabinetColor = isVault ? '#12151c' : '#20262b';
+  const frontColor = isVault ? '#080a0f' : '#11161a';
+
+  return (
+    <group
+      onClick={(event) => {
+        event.stopPropagation();
+        setActiveModule(module.id);
+      }}
+      position={position}
+      rotation={[0, -0.36, 0]}
+      scale={scale}
+    >
+      <mesh position={[0, 0.05, -0.1]} castShadow receiveShadow>
+        <boxGeometry args={[2.15, cabinetHeight, 1.22]} />
+        <meshStandardMaterial color={cabinetColor} roughness={isVault ? 0.62 : 0.5} metalness={isVault ? 0.82 : 0.7} />
+      </mesh>
+      <mesh position={[0, 0.05, 0.56]} receiveShadow>
+        <boxGeometry args={[1.94, cabinetHeight - 0.28, 0.09]} />
+        <meshStandardMaterial color={frontColor} roughness={0.48} metalness={0.68} />
+      </mesh>
+      <mesh position={[0, cabinetHeight / 2 - 0.2, 0.62]} castShadow>
+        <boxGeometry args={[1.78, 0.28, 0.08]} />
+        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={isActive ? 0.52 : 0.22} roughness={0.34} metalness={0.7} />
+      </mesh>
+
+      {isDasd && Array.from({ length: 8 }).map((_, rowIndex) => (
+        <group key={rowIndex} position={[0, 1.48 - rowIndex * 0.38, 0.64]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[1.72, 0.24, 0.12]} />
+            <meshStandardMaterial color={rowIndex % 2 === 0 ? '#263039' : '#202832'} roughness={0.42} metalness={0.72} />
+          </mesh>
+          {Array.from({ length: 4 }).map((__, bayIndex) => (
+            <mesh key={bayIndex} position={[-0.58 + bayIndex * 0.38, 0, 0.085]} castShadow>
+              <boxGeometry args={[0.28, 0.14, 0.045]} />
+              <meshStandardMaterial color="#151b21" roughness={0.34} metalness={0.78} />
+            </mesh>
+          ))}
+          <mesh position={[0.76, -0.03, 0.1]} castShadow>
+            <sphereGeometry args={[0.026, 12, 8]} />
+            <meshStandardMaterial color="#72f2b4" emissive="#2fd684" emissiveIntensity={0.58} />
+          </mesh>
+        </group>
+      ))}
+
+      {isTape && (
+        <group position={[0, 0.03, 0.64]}>
+          {Array.from({ length: 24 }).map((_, index) => {
+            const column = index % 4;
+            const row = Math.floor(index / 4);
+
+            return (
+              <mesh key={index} position={[-0.63 + column * 0.42, 1.52 - row * 0.54, 0.055]} castShadow receiveShadow>
+                <boxGeometry args={[0.24, 0.42, 0.09]} />
+                <meshStandardMaterial color={index % 3 === 0 ? '#2d3338' : '#20252a'} roughness={0.5} metalness={0.64} />
+              </mesh>
+            );
+          })}
+          <mesh position={[0, 0.04, 0.13]} castShadow>
+            <boxGeometry args={[0.1, 3.55, 0.08]} />
+            <meshStandardMaterial color="#b7c0c7" emissive="#5d6870" emissiveIntensity={0.12} roughness={0.36} metalness={0.76} />
+          </mesh>
+          <mesh position={[0.42, -1.35, 0.15]} castShadow>
+            <boxGeometry args={[0.72, 0.28, 0.1]} />
+            <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={isActive ? 0.36 : 0.16} roughness={0.32} metalness={0.74} />
+          </mesh>
+        </group>
+      )}
+
+      {isVault && (
+        <group position={[0, 0.03, 0.64]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[1.54, 3.18, 0.13]} />
+            <meshStandardMaterial color="#05070b" roughness={0.68} metalness={0.82} />
+          </mesh>
+          <mesh position={[0, 0.24, 0.1]} castShadow>
+            <boxGeometry args={[0.98, 1.34, 0.08]} />
+            <meshStandardMaterial color="#111827" roughness={0.42} metalness={0.88} />
+          </mesh>
+          <mesh position={[0, 0.24, 0.16]} castShadow>
+            <cylinderGeometry args={[0.28, 0.28, 0.08, 32]} />
+            <meshStandardMaterial color="#1f2937" emissive={accent} emissiveIntensity={isActive ? 0.2 : 0.08} roughness={0.32} metalness={0.9} />
+          </mesh>
+          <mesh position={[0, 1.66, 0.12]} castShadow>
+            <boxGeometry args={[1.4, 0.06, 0.08]} />
+            <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.22} />
+          </mesh>
+          <mesh position={[-0.72, -1.72, 0.14]} castShadow>
+            <sphereGeometry args={[0.035, 14, 8]} />
+            <meshStandardMaterial color="#72f2b4" emissive="#2fd684" emissiveIntensity={0.46} />
+          </mesh>
+        </group>
+      )}
+
+      <mesh position={[-1.06, 0.08, 0.62]} castShadow>
+        <boxGeometry args={[0.18, 0.18, 0.1]} />
+        <meshStandardMaterial color="#8dd7f7" emissive="#2f88b8" emissiveIntensity={0.34} roughness={0.28} metalness={0.7} />
+      </mesh>
+
+      <mesh position={[0, -2.16, 0.12]} castShadow>
+        <boxGeometry args={[1.86, 0.2, 1.04]} />
+        <meshStandardMaterial color="#0c0f12" roughness={0.56} metalness={0.54} />
+      </mesh>
+
+      <Html center distanceFactor={8} position={[0, cabinetHeight / 2 + 0.22, 0.72]} className="module-label external-label">
+        {module.title}
+      </Html>
+      {selectedOption && (
+        <Html center distanceFactor={9} position={[0, -cabinetHeight / 2 + 0.44, 0.72]} className="module-label external-option-label">
+          {selectedOption.name}
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function getFramePositions(frameCount, hasExternalSystems) {
+  if (frameCount === 2) {
+    const shift = hasExternalSystems ? -0.76 : 0;
+    const frameSeparation = 3.08;
+    const frameAngle = -0.36;
+    const halfX = (frameSeparation / 2) * Math.cos(frameAngle);
+    const halfZ = -(frameSeparation / 2) * Math.sin(frameAngle);
+
+    return [
+      [-halfX + shift, -0.1, -halfZ],
+      [halfX + shift, -0.1, halfZ],
+    ];
+  }
+
+  return [hasExternalSystems ? [-1.36, -0.1, 0] : [0, -0.1, 0]];
+}
+
+function ProceduralMainframe({
+  activeModule,
+  animateDoorOnMount = false,
+  design,
+  doorSide = 'left',
+  isDoorClosed,
+  modules,
+  position,
+  selection,
+  setActiveModule,
+}) {
   const mainframeRef = useRef(null);
   const cameraPosition = useMemo(() => new Vector3(), []);
   const colors = design.colors;
-  const isConfigurationComplete = modules.length > 0 && modules.every((module) => selection[module.id] !== undefined);
+  const isConfigurationComplete = modules.length > 0 && modules.every((module) => (
+    module.isConfigured ?? selection[module.sourceModuleId ?? module.id] !== undefined
+  ));
   const [isFrontView, setIsFrontView] = useState(true);
   const [areModulesCovered, setAreModulesCovered] = useState(isDoorClosed);
 
@@ -442,7 +741,7 @@ function ProceduralMainframe({ activeModule, design, modules, selection, setActi
   });
 
   return (
-    <group ref={mainframeRef} position={[0, -0.1, 0]} rotation={[0, -0.36, 0]} scale={0.86}>
+    <group ref={mainframeRef} position={position} rotation={[0, -0.36, 0]} scale={0.86}>
       <mesh position={[0, 0.24, -0.18]} castShadow receiveShadow>
         <boxGeometry args={[3.55, 5.42, 1.55]} />
         <meshStandardMaterial color={colors.shell} roughness={0.5} metalness={0.72} />
@@ -461,7 +760,7 @@ function ProceduralMainframe({ activeModule, design, modules, selection, setActi
       <RackRail colors={colors} x={-1.42} />
       <RackRail colors={colors} x={1.42} />
       <SideVentPattern colors={colors} />
-      <RackSlotStack colors={colors} />
+      <RackSlotStack colors={colors} modules={modules} />
 
       {modules.map((module) => (
         <ModuleTray
@@ -503,7 +802,7 @@ function ProceduralMainframe({ activeModule, design, modules, selection, setActi
         <meshStandardMaterial color={colors.foot} roughness={0.45} metalness={0.72} />
       </mesh>
 
-      <CabinetDoor colors={colors} isDoorClosed={isDoorClosed} />
+      <CabinetDoor animateOnMount={animateDoorOnMount} colors={colors} isDoorClosed={isDoorClosed} side={doorSide} />
     </group>
   );
 }
@@ -512,6 +811,7 @@ export function MainframeScene({
   activeModule,
   background = DEFAULT_SCENE_BACKGROUND,
   design = defaultMainframeDesign,
+  frame,
   isDoorClosed,
   modules,
   selection,
@@ -519,10 +819,50 @@ export function MainframeScene({
 }) {
   const colors = design.colors;
   const canvasBackgroundStyle = getCanvasBackgroundStyle(background, colors.canvasBackground);
+  const cpcModules = useMemo(() => modules.filter((module) => !isExternalModule(module)), [modules]);
+  const selectedExternalModules = useMemo(
+    () => modules.filter((module) => isExternalModule(module) && selection[module.id] !== undefined),
+    [modules, selection],
+  );
+  const hasExternalSystems = selectedExternalModules.length > 0;
+  const frameCount = frame?.frameCount ?? 1;
+  const framePositions = useMemo(
+    () => getFramePositions(frameCount, hasExternalSystems),
+    [frameCount, hasExternalSystems],
+  );
+  const cpcPosition = framePositions[0];
+  const expansionFramePositions = framePositions.slice(1);
+  const aFrameModules = useMemo(
+    () => buildAFrameModules(selection, selectedExternalModules),
+    [selection, selectedExternalModules],
+  );
+  const externalSystems = useMemo(() => {
+    const connectionSource = framePositions[framePositions.length - 1] ?? [0, -0.1, 0];
+
+    return selectedExternalModules.map((module, index) => {
+      const layout = EXTERNAL_SYSTEM_LAYOUT[module.id] ?? {
+        offset: [3.7 + index * 1.4, -0.34, -0.8 - index * 1.2],
+        scale: 0.66,
+      };
+      const position = [
+        connectionSource[0] + layout.offset[0],
+        layout.offset[1],
+        layout.offset[2],
+      ];
+
+      return {
+        connectionEnd: [position[0] - 0.72, position[1] + 0.16, position[2] + 0.44],
+        connectionStart: [connectionSource[0] + 1.46, -0.05, connectionSource[2] + 0.62],
+        module,
+        position,
+        scale: layout.scale,
+      };
+    });
+  }, [framePositions, selectedExternalModules]);
 
   return (
     <div className="canvas-wrap" style={canvasBackgroundStyle}>
-      <Canvas camera={{ position: [4.55, 3.35, 7.8], fov: 38 }} gl={{ alpha: true }} shadows style={{ background: 'transparent' }}>
+      <Canvas camera={{ position: [6.8, 3.7, 10.6], fov: 45 }} gl={{ alpha: true }} shadows style={{ background: 'transparent' }}>
         <ambientLight intensity={0.58} />
         <directionalLight position={[4, 6, 4]} intensity={1.8} castShadow />
         <spotLight position={[-3.8, 4.6, 3.2]} angle={0.42} penumbra={0.45} intensity={2.25} castShadow />
@@ -532,16 +872,50 @@ export function MainframeScene({
             activeModule={activeModule}
             design={design}
             isDoorClosed={isDoorClosed}
-            modules={modules}
+            modules={cpcModules}
+            position={cpcPosition}
             selection={selection}
             setActiveModule={setActiveModule}
           />
+          {expansionFramePositions.map((position, index) => (
+            <ProceduralMainframe
+              activeModule={activeModule}
+              animateDoorOnMount
+              design={design}
+              doorSide="right"
+              isDoorClosed={isDoorClosed}
+              key={index === 0 ? 'a-frame' : `expansion-${index}`}
+              modules={aFrameModules}
+              position={position}
+              selection={selection}
+              setActiveModule={setActiveModule}
+            />
+          ))}
+          {externalSystems.map((system, index) => (
+            <ExternalConnection
+              end={system.connectionEnd}
+              key={`${system.module.id}-connection`}
+              label={index === 0 ? 'FICON / SAN' : ''}
+              start={system.connectionStart}
+            />
+          ))}
+          {externalSystems.map((system) => (
+            <ExternalSystemCabinet
+              activeModule={activeModule}
+              key={system.module.id}
+              module={system.module}
+              position={system.position}
+              scale={system.scale}
+              selection={selection}
+              setActiveModule={setActiveModule}
+            />
+          ))}
           <BlenderAssetSlots />
-          <ContactShadows position={[0, -2.55, 0]} opacity={0.52} scale={8} blur={2.8} />
+          <ContactShadows position={[1.2, -2.55, -0.35]} opacity={0.52} scale={15.5} blur={2.8} />
           <Environment preset="warehouse" />
         </Suspense>
 
-        <OrbitControls enablePan={false} minDistance={6.2} maxDistance={10.4} />
+        <OrbitControls enablePan={false} minDistance={6.2} maxDistance={14.4} />
       </Canvas>
     </div>
   );

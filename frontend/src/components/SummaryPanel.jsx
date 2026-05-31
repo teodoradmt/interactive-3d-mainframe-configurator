@@ -1,53 +1,63 @@
-import { Bot } from 'lucide-react';
+import { AlertTriangle, Server } from 'lucide-react';
 import { currency, number } from '../utils/formatters.js';
 
 export function SummaryPanel({
-  aiError,
-  aiModel,
-  aiRecommendation,
-  isAiLoading,
+  frameEvaluation,
   isComplete,
-  onRequestAiRecommendation,
   totals,
 }) {
+  const frameMetrics = frameEvaluation?.metrics ?? {};
+  const safeTotals = totals ?? {
+    total: 0,
+    kw: 0,
+    monthlyCost: 0,
+    lpars: 0,
+    ram: 0,
+    io: 0,
+  };
+
   return (
     <div className="summary">
-      <h2>Оценка</h2>
+      <h2>Evaluation</h2>
 
       {!isComplete ? (
-        <p className="summary-empty">Очаква се пълна конфигурация.</p>
+        <p className="summary-empty">Complete the CPC modules to see the evaluation.</p>
       ) : (
         <>
-          <Metric label="Цена" value={currency.format(totals.total)} />
-          <Metric label="IBM Z капацитет" value={`${number.format(totals.cpu)} demo units`} />
-          <Metric label="AI профил" value={`${number.format(totals.accelerator)} AI score`} />
-          <Metric label="RAM" value={`${number.format(totals.ram)} GB`} />
-          <Metric label="Storage" value={`${number.format(totals.storage)} TB`} />
-          <Metric label="Електроенергия" value={`${totals.kw.toFixed(1)} kW`}   />
-          <Metric label="Месечен разход" value={currency.format(totals.monthlyCost)} />
-          <Metric label="Годишен разход" value={currency.format(totals.yearlyCost)} />
+          <Metric label="Total price" value={currency.format(safeTotals.total)} />
+          <Metric label="Estimated power usage" value={`${safeTotals.kw.toFixed(1)} kW`} />
+          <Metric label="Monthly electricity cost" value={currency.format(safeTotals.monthlyCost)} />
+          <Metric label="CPC capacity score" value={`${number.format(frameMetrics.cpcCapacityScore ?? 0)}/100`} />
+          <Metric label="LPAR capacity" value={number.format(frameMetrics.lparCapacity ?? safeTotals.lpars ?? 0)} />
+          <Metric label="Memory capacity" value={`${number.format(frameMetrics.memoryCapacity ?? safeTotals.ram)} GB`} />
+          <Metric label="I/O throughput" value={`${number.format(frameMetrics.ioThroughput ?? safeTotals.io ?? 0)} GbE`} />
+          <Metric label="Storage readiness" value={`${number.format(frameMetrics.storageReadiness ?? 0)}/100`} />
+          <Metric label="Security score" value={`${number.format(frameMetrics.securityScore ?? 0)}/100`} />
+          <Metric label="Redundancy score" value={`${number.format(frameMetrics.redundancyScore ?? 0)}/100`} />
+          <Metric label="Cooling efficiency" value={`${number.format(frameMetrics.coolingEfficiency ?? 0)}/100`} />
+          <Metric label="Disaster Recovery Tier" value={frameMetrics.disasterRecoveryTier ?? 'None'} />
+          <Metric label="Estimated Availability" value={frameMetrics.estimatedAvailability ?? '99.40%'} />
+          <Metric label="Production readiness" value={frameMetrics.productionReadiness ?? 'Low'} />
+          <Metric label="Recommended frame" value={frameMetrics.recommendedFrameName ?? frameEvaluation?.recommendedFrame?.name ?? 'Z Frame'} />
+          <Metric label="Configuration validity" value={frameMetrics.configurationValidity ?? 'Valid'} />
 
-          <div className="ai-panel">
-            <div className="ai-panel-head">
-              <span>
-                <Bot size={17} />
-                AI анализ
-              </span>
-              {aiModel && <small>{aiModel}</small>}
+          {(frameEvaluation?.warnings?.length > 0 || frameEvaluation?.info?.length > 0) && (
+            <div className="evaluation-messages">
+              {frameEvaluation.warnings.map((message) => (
+                <p className="evaluation-message warning" key={message}>
+                  <AlertTriangle size={15} />
+                  {message}
+                </p>
+              ))}
+              {frameEvaluation.info.map((message) => (
+                <p className="evaluation-message info" key={message}>
+                  <Server size={15} />
+                  {message}
+                </p>
+              ))}
             </div>
+          )}
 
-            <button
-              className="ai-button"
-              disabled={isAiLoading}
-              onClick={onRequestAiRecommendation}
-              type="button"
-            >
-              {isAiLoading ? 'AI анализира...' : 'AI анализ с Qwen3'}
-            </button>
-
-            {aiError && <p className="ai-error">{aiError}</p>}
-            {aiRecommendation && <p className="ai-response">{aiRecommendation}</p>}
-          </div>
         </>
       )}
     </div>

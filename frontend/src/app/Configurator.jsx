@@ -4,15 +4,21 @@ import { MainframeScene } from '../components/MainframeScene.jsx';
 import { MainframeChat } from '../components/MainframeChat.jsx';
 import { MainframeBackgroundPanel } from '../components/MainframeBackgroundPanel.jsx';
 import { MainframeDesignPanel } from '../components/MainframeDesignPanel.jsx';
+import { FrameConfigurationPanel } from '../components/FrameConfigurationPanel.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
 import { ProfileButton } from '../components/ProfileButton.jsx';
 import { ProfilePage } from '../components/ProfilePage.jsx';
 import { SaveConfigurationPage } from '../components/SaveConfigurationPage.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
 import { getMainframeDesign, mainframeDesigns } from '../config/mainframeDesigns.js';
+import {
+  DEFAULT_FRAME_ID,
+  FRAME_AUTO_ID,
+  evaluateFrameConfiguration,
+  getFrameConfiguration,
+} from '../config/frameConfigurations.js';
 import { isSelectionComplete, mergeModulePresentation } from '../config/modulePresentation.js';
 import {
-  fetchAiRecommendation,
   fetchCurrentUser,
   fetchEstimate,
   fetchModules,
@@ -26,6 +32,9 @@ const emptyTotals = {
   accelerator: 0,
   ram: 0,
   storage: 0,
+  lpars: 0,
+  io: 0,
+  security: 0,
   kw: 0,
   monthlyCost: 0,
   yearlyCost: 0,
@@ -38,6 +47,17 @@ const defaultSceneBackground = {
   imageName: '',
 };
 const authTokenStorageKey = 'mainframe-auth-token';
+const zPlusAFrameId = 'z-plus-a';
+const moduleOptionsRequiringAFrame = {
+  cooling: new Set([2]),
+  cyberVault: new Set([0, 1, 2]),
+  externalDASD: new Set([0, 1, 2]),
+  memory: new Set([2]),
+  power: new Set([2]),
+  processor: new Set([2]),
+  storage: new Set([2]),
+  tapeBackup: new Set([0, 1, 2]),
+};
 const duplicateConfigurationNameMessage = 'Такава конфигурация вече съществува. Сменете името!';
 
 function normalizeConfigurationName(value) {
@@ -50,6 +70,38 @@ function wait(ms) {
   });
 }
 
+function isRequiredModule(module) {
+  return module.required !== false && module.category !== 'external';
+}
+
+function getSourceSelectionValue(sourceSelection, module) {
+  if (!sourceSelection || typeof sourceSelection !== 'object') {
+    return undefined;
+  }
+
+  if (module.id === 'cooling' && sourceSelection.cooling === undefined) {
+    return sourceSelection.power;
+  }
+
+  if (
+    module.id === 'externalDASD'
+    && sourceSelection.externalDASD === undefined
+    && sourceSelection.cooling === undefined
+  ) {
+    return sourceSelection.storage;
+  }
+
+  return sourceSelection[module.id];
+}
+
+function selectionRequiresAFrame(selection) {
+  return Object.entries(moduleOptionsRequiringAFrame).some(([moduleId, requiredOptions]) => {
+    const optionIndex = Number(selection[moduleId]);
+
+    return Number.isInteger(optionIndex) && requiredOptions.has(optionIndex);
+  });
+}
+
 export function Configurator() {
   const [modules, setModules] = useState([]);
   const [selection, setSelection] = useState({});
@@ -58,11 +110,8 @@ export function Configurator() {
   const [error, setError] = useState('');
   const [isDoorOpen, setIsDoorOpen] = useState(true);
   const [selectedDesignId, setSelectedDesignId] = useState(mainframeDesigns[0].id);
+  const [selectedFrameId, setSelectedFrameId] = useState(FRAME_AUTO_ID);
   const [sceneBackground, setSceneBackground] = useState(defaultSceneBackground);
-  const [aiRecommendation, setAiRecommendation] = useState('');
-  const [aiModel, setAiModel] = useState('');
-  const [aiError, setAiError] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(authTokenStorageKey) ?? '');
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(Boolean(authToken));
@@ -150,7 +199,7 @@ export function Configurator() {
   );
 
   const selectedCount = useMemo(
-    () => modules.filter((module) => selection[module.id] !== undefined).length,
+    () => modules.filter((module) => isRequiredModule(module) && selection[module.id] !== undefined).length,
     [modules, selection],
   );
 
@@ -159,14 +208,20 @@ export function Configurator() {
     [selectedDesignId],
   );
 
+  const frameEvaluation = useMemo(
+    () => evaluateFrameConfiguration({
+      modules,
+      selectedFrameId,
+      selection,
+      totals,
+    }),
+    [modules, selectedFrameId, selection, totals],
+  );
+
   useEffect(() => {
     if (!modules.length || !isConfigurationComplete) {
       setTotals(emptyTotals);
       setIsDoorOpen(true);
-      setAiRecommendation('');
-      setAiModel('');
-      setAiError('');
-      setIsAiLoading(false);
       return undefined;
     }
 
@@ -195,25 +250,11 @@ export function Configurator() {
     };
   }, [isConfigurationComplete, modules.length, selection]);
 
-  const requestAiRecommendation = async () => {
-    if (!isConfigurationComplete || isAiLoading) {
-      return;
+  useEffect(() => {
+    if (selectionRequiresAFrame(selection) && selectedFrameId === DEFAULT_FRAME_ID) {
+      setSelectedFrameId(zPlusAFrameId);
     }
-
-    const controller = new AbortController();
-    setIsAiLoading(true);
-    setAiError('');
-
-    try {
-      const result = await fetchAiRecommendation(selection, controller.signal);
-      setAiRecommendation(result.recommendation);
-      setAiModel(result.model);
-    } catch {
-      setAiError('Ollama не върна отговор. Провери дали работи и дали моделът qwen3:14b е наличен.');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
+  }, [selectedFrameId, selection]);
 
   const clearSceneBackgroundImage = () => {
     if (backgroundImageUrlRef.current) {
@@ -268,6 +309,10 @@ export function Configurator() {
     }));
   };
 
+  const applyRecommendedFrame = () => {
+    setSelectedFrameId(frameEvaluation.recommendedFrame.id);
+  };
+
   const updateSelection = (moduleId, optionIndex) => {
     applySequenceRef.current += 1;
     setSelection((current) => {
@@ -281,16 +326,13 @@ export function Configurator() {
     });
     setActiveModule(moduleId);
     setIsDoorOpen(true);
-    setAiRecommendation('');
-    setAiModel('');
-    setAiError('');
   };
 
   const getValidSelection = (sourceSelection) => {
     const nextSelection = {};
 
     modules.forEach((module) => {
-      const optionIndex = Number(sourceSelection?.[module.id]);
+      const optionIndex = Number(getSourceSelectionValue(sourceSelection, module));
 
       if (Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < module.options.length) {
         nextSelection[module.id] = optionIndex;
@@ -308,9 +350,6 @@ export function Configurator() {
     setSelection({});
     setActiveModule(modules.find((module) => nextSelection[module.id] !== undefined)?.id ?? modules[0]?.id ?? null);
     setIsDoorOpen(true);
-    setAiRecommendation('');
-    setAiModel('');
-    setAiError('');
 
     for (const module of modules) {
       if (applySequenceRef.current !== sequence) {
@@ -391,6 +430,8 @@ export function Configurator() {
 
   const handleLoadConfiguration = async (configuration) => {
     setSelectedDesignId(configuration.designId || mainframeDesigns[0].id);
+    const savedFrameId = configuration.frameConfiguration?.selectedFrameId ?? configuration.frameConfiguration?.mode;
+    setSelectedFrameId(savedFrameId ? (savedFrameId === FRAME_AUTO_ID ? FRAME_AUTO_ID : getFrameConfiguration(savedFrameId).id) : FRAME_AUTO_ID);
     setError('');
 
     if (backgroundImageUrlRef.current) {
@@ -437,6 +478,8 @@ export function Configurator() {
     return (
       <SaveConfigurationPage
         currentUser={currentUser}
+        frameEvaluation={frameEvaluation}
+        selectedFrameId={selectedFrameId}
         isComplete={isConfigurationComplete}
         modules={modules}
         onBack={() => setView('configurator')}
@@ -452,6 +495,23 @@ export function Configurator() {
 
   return (
     <main className="app-shell">
+      <aside className="panel controls-panel">
+        {error && <p className="state-banner">{error}</p>}
+
+        <MainframeChat onApplySelection={applySuggestedSelection} selection={selection} />
+
+        <ModuleConfigurationPanel
+          activeModule={activeModule}
+          modules={modules}
+          onSaveConfiguration={openSaveConfiguration}
+          selectedCount={selectedCount}
+          selection={selection}
+          section="cpc"
+          setActiveModule={setActiveModule}
+          updateSelection={updateSelection}
+        />
+      </aside>
+
       <section className="stage">
         <div className="titlebar">
           <div className="titlebar-heading">
@@ -469,6 +529,12 @@ export function Configurator() {
               designs={mainframeDesigns}
               onSelectDesign={setSelectedDesignId}
               selectedDesignId={selectedDesignId}
+            />
+            <FrameConfigurationPanel
+              frameEvaluation={frameEvaluation}
+              onApplyRecommendedFrame={applyRecommendedFrame}
+              onSelectFrame={setSelectedFrameId}
+              selectedFrameId={selectedFrameId}
             />
             <div className="title-profile-group">
               <ProfileButton
@@ -488,6 +554,7 @@ export function Configurator() {
           activeModule={activeModule}
           background={sceneBackground}
           design={selectedDesign}
+          frame={frameEvaluation.effectiveFrame}
           isDoorClosed={isConfigurationComplete && !isDoorOpen}
           modules={modules}
           selection={selection}
@@ -495,30 +562,25 @@ export function Configurator() {
         />
       </section>
 
-      <aside className="panel">
-        {error && <p className="state-banner">{error}</p>}
+      <aside className="right-column">
+        <div className="panel external-systems-panel">
+          <ModuleConfigurationPanel
+            activeModule={activeModule}
+            modules={modules}
+            selection={selection}
+            section="external"
+            setActiveModule={setActiveModule}
+            updateSelection={updateSelection}
+          />
+        </div>
 
-        <MainframeChat onApplySelection={applySuggestedSelection} selection={selection} />
-
-        <ModuleConfigurationPanel
-          activeModule={activeModule}
-          modules={modules}
-          onSaveConfiguration={openSaveConfiguration}
-          selectedCount={selectedCount}
-          selection={selection}
-          setActiveModule={setActiveModule}
-          updateSelection={updateSelection}
-        />
-
-        <SummaryPanel
-          aiError={aiError}
-          aiModel={aiModel}
-          aiRecommendation={aiRecommendation}
-          isAiLoading={isAiLoading}
-          isComplete={isConfigurationComplete}
-          onRequestAiRecommendation={requestAiRecommendation}
-          totals={totals}
-        />
+        <section className="evaluation-panel">
+          <SummaryPanel
+            frameEvaluation={frameEvaluation}
+            isComplete={isConfigurationComplete}
+            totals={totals}
+          />
+        </section>
       </aside>
     </main>
   );

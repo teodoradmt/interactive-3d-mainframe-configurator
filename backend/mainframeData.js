@@ -1,86 +1,358 @@
 export const modules = [
   {
     id: 'processor',
-    title: 'IBM Z Generation',
-    short: 'CPU',
+    category: 'cpc',
+    required: true,
+    title: 'CPC / Processor Complex',
+    short: 'CPC Drawer',
     options: [
       {
-        name: 'IBM z15 8561',
-        spec: 'z15 CP, 12-core 5.2 GHz, RAIM',
+        name: 'Entry Processor Complex',
+        spec: 'Entry CPC drawer for moderate consolidation and Linux workloads',
         price: 420000,
         cpu: 85000,
-        accelerator: 6,
+        accelerator: 8,
+        capacityScore: 42,
+        aiScore: 12,
+        lpars: 30,
         watts: 2.4,
       },
       {
-        name: 'IBM z16 Telum',
-        spec: 'Telum, on-chip AI, quantum-safe',
+        name: 'Enterprise Processor Complex',
+        spec: 'Enterprise CPC drawer for high transaction density and mixed workloads',
         price: 980000,
         cpu: 125000,
-        accelerator: 24,
+        accelerator: 26,
+        capacityScore: 72,
+        aiScore: 38,
+        lpars: 70,
         watts: 5.8,
       },
       {
-        name: 'IBM z17 Telum II',
-        spec: 'Telum II, DPU, Spyre-ready AI',
+        name: 'AI-Accelerated CPC',
+        spec: 'AI-accelerated CPC drawer with maximum demo capacity and accelerator score',
         price: 1760000,
         cpu: 175000,
-        accelerator: 48,
+        accelerator: 54,
+        capacityScore: 96,
+        aiScore: 78,
+        lpars: 120,
         watts: 10.6,
       },
     ],
   },
   {
     id: 'memory',
-    title: 'IBM Z Memory',
-    short: 'RAM',
+    category: 'cpc',
+    required: true,
+    title: 'Memory & Virtualization',
+    short: 'Memory / LPAR',
     options: [
-      { name: 'RAIM 1 TB', spec: 'Entry RAIM memory', price: 160000, ram: 1024, watts: 0.9 },
-      { name: 'RAIM 4 TB', spec: 'Production LPAR consolidation', price: 410000, ram: 4096, watts: 2.8 },
-      { name: 'RAIM 12 TB', spec: 'Large in-memory workloads', price: 930000, ram: 12288, watts: 6.5 },
+      {
+        name: '1 TB RAIM Memory',
+        spec: 'Entry RAIM memory with base LPAR capacity',
+        price: 160000,
+        ram: 1024,
+        lpars: 20,
+        consolidationScore: 30,
+        watts: 0.9,
+      },
+      {
+        name: '4 TB RAIM Memory',
+        spec: 'Production RAIM memory for LPAR consolidation',
+        price: 410000,
+        ram: 4096,
+        lpars: 60,
+        consolidationScore: 62,
+        watts: 2.8,
+      },
+      {
+        name: '12 TB RAIM Memory',
+        spec: 'Large RAIM memory tier for dense in-memory workloads',
+        price: 930000,
+        ram: 12288,
+        lpars: 120,
+        consolidationScore: 95,
+        watts: 6.5,
+      },
     ],
   },
   {
     id: 'storage',
-    title: 'IBM Z Storage',
-    short: 'Storage',
+    category: 'cpc',
+    required: true,
+    title: 'I/O Connectivity Drawers',
+    short: 'I/O Drawers',
     options: [
-      { name: 'DS8900F 120 TB', spec: 'FICON attached flash tier', price: 210000, storage: 120, watts: 1.2 },
-      { name: 'DS8900F 640 TB', spec: 'zHyperLink low-latency tier', price: 520000, storage: 640, watts: 3.4 },
-      { name: 'Cyber Vault 2 PB', spec: 'Resilient copy / recovery tier', price: 1240000, storage: 2048, watts: 7.8 },
+      {
+        name: 'Basic OSA Network',
+        spec: 'Base OSA network connectivity without dedicated external DASD fabric',
+        price: 130000,
+        io: 40,
+        externalDASDSupport: false,
+        tapeConnectivity: false,
+        watts: 0.8,
+      },
+      {
+        name: 'FICON + Fibre Channel',
+        spec: 'FICON/SAN links for external DASD and tape connectivity',
+        price: 290000,
+        io: 140,
+        externalDASDSupport: true,
+        tapeConnectivity: true,
+        watts: 1.9,
+      },
+      {
+        name: 'Enterprise I/O Fabric',
+        spec: 'High-bandwidth I/O fabric for large external storage topologies',
+        price: 680000,
+        io: 400,
+        externalDASDSupport: true,
+        tapeConnectivity: true,
+        watts: 4.2,
+      },
     ],
   },
   {
     id: 'network',
-    title: 'IBM Z I/O & Network',
-    short: 'I/O',
+    category: 'cpc',
+    required: true,
+    title: 'Management & Control',
+    short: 'Management / SE',
     options: [
-      { name: 'OSA-Express + FICON Base', spec: '40 GbE class + 16 FC', price: 130000, io: 40, watts: 0.8 },
-      { name: 'OSA-Express + RoCE', spec: '100 GbE class + 32 FC', price: 290000, io: 100, watts: 1.9 },
-      { name: 'High-throughput I/O Fabric', spec: '400 GbE class + zHyperLink', price: 680000, io: 400, watts: 4.2 },
+      {
+        name: 'Basic Management',
+        spec: 'Base HMC and support element management',
+        price: 85000,
+        management: 35,
+        redundancy: 1,
+        monitoring: 25,
+        watts: 0.4,
+      },
+      {
+        name: 'Redundant Support Elements',
+        spec: 'Redundant SE/HMC control path for production operations',
+        price: 190000,
+        management: 65,
+        redundancy: 2,
+        monitoring: 55,
+        watts: 0.9,
+      },
+      {
+        name: 'Advanced Monitoring & Control',
+        spec: 'Advanced monitoring, control hubs, and operations telemetry',
+        price: 360000,
+        management: 92,
+        redundancy: 3,
+        monitoring: 90,
+        watts: 1.4,
+      },
     ],
   },
   {
     id: 'security',
-    title: 'IBM Z Security',
-    short: 'Security',
+    category: 'cpc',
+    required: true,
+    title: 'Crypto & Security',
+    short: 'Crypto / Security',
     options: [
-      { name: 'CPACF + Crypto Express', spec: 'Pervasive encryption base', price: 70000, security: 1, watts: 0.3 },
-      { name: 'z16 Quantum-safe Suite', spec: 'Quantum-safe firmware path', price: 210000, security: 2, watts: 0.8 },
-      { name: 'z17 AI Security Suite', spec: 'Quantum-safe + AI detection', price: 440000, security: 3, watts: 1.7 },
+      {
+        name: 'Standard Secure Boot',
+        spec: 'Secure boot and base platform protection',
+        price: 70000,
+        security: 1,
+        compliance: 30,
+        watts: 0.3,
+      },
+      {
+        name: 'Crypto Express',
+        spec: 'Hardware crypto acceleration and pervasive encryption support',
+        price: 210000,
+        security: 2,
+        compliance: 68,
+        watts: 0.8,
+      },
+      {
+        name: 'Quantum-Safe Security Suite',
+        spec: 'Quantum-safe security posture with AI-assisted protection score',
+        price: 440000,
+        security: 3,
+        compliance: 95,
+        accelerator: 6,
+        watts: 1.7,
+      },
     ],
   },
   {
     id: 'power',
-    title: 'IBM Z Power & Cooling',
+    category: 'cpc',
+    required: true,
+    title: 'Power Infrastructure',
     short: 'Power',
     options: [
-      { name: 'Air-cooled Frame', spec: 'Standard redundant cooling', price: 90000, cooling: 1, watts: 0.7, efficiency: 1.18 },
-      { name: 'Rear Door Heat Exchanger', spec: 'Datacenter chilled-water assist', price: 180000, cooling: 2, watts: 1.1, efficiency: 1.1 },
-      { name: 'Liquid-cooling Ready', spec: 'High-density z17-ready cooling', price: 360000, cooling: 3, watts: 1.8, efficiency: 1.04 },
+      {
+        name: 'Standard Redundant Power',
+        spec: 'Standard redundant power feeds for CPC frame operation',
+        price: 90000,
+        uptimeScore: 45,
+        shutdownProtection: 35,
+        watts: 0.7,
+      },
+      {
+        name: 'Internal Battery Feature',
+        spec: 'Internal battery feature for controlled shutdown protection',
+        price: 180000,
+        uptimeScore: 68,
+        shutdownProtection: 72,
+        watts: 1.1,
+      },
+      {
+        name: 'High-Availability Power',
+        spec: 'High-availability internal power design for critical environments',
+        price: 330000,
+        uptimeScore: 92,
+        shutdownProtection: 95,
+        watts: 1.7,
+      },
+    ],
+  },
+  {
+    id: 'cooling',
+    category: 'cpc',
+    required: true,
+    title: 'Cooling Infrastructure',
+    short: 'Cooling',
+    options: [
+      {
+        name: 'Air-Cooled Frame',
+        spec: 'Standard air-cooled CPC frame',
+        price: 90000,
+        cooling: 1,
+        thermalScore: 38,
+        performanceCeiling: 52,
+        watts: 0.7,
+        efficiency: 1.18,
+      },
+      {
+        name: 'Rear Door Heat Exchanger',
+        spec: 'Rear door heat exchanger for higher-density datacenter cooling',
+        price: 180000,
+        cooling: 2,
+        thermalScore: 70,
+        performanceCeiling: 78,
+        watts: 1.1,
+        efficiency: 1.1,
+      },
+      {
+        name: 'Liquid-Cooling Ready',
+        spec: 'Liquid-cooling-ready frame for maximum performance support',
+        price: 360000,
+        cooling: 3,
+        thermalScore: 94,
+        performanceCeiling: 96,
+        watts: 1.8,
+        efficiency: 1.04,
+      },
+    ],
+  },
+  {
+    id: 'externalDASD',
+    category: 'external',
+    required: false,
+    title: 'External DASD Storage',
+    short: 'DASD',
+    externalObject: 'dasd',
+    options: [
+      {
+        name: 'DASD Array 120 TB',
+        spec: 'FICON / SAN attached external DASD array',
+        price: 210000,
+        storage: 120,
+        watts: 1.2,
+      },
+      {
+        name: 'Flash Enterprise Storage 640 TB',
+        spec: 'High-performance external flash storage cabinet',
+        price: 520000,
+        storage: 640,
+        watts: 3.4,
+      },
+      {
+        name: '2 PB Enterprise DASD',
+        spec: 'Large external DASD cabinet for enterprise data estates',
+        price: 1240000,
+        storage: 2048,
+        watts: 7.8,
+      },
+    ],
+  },
+  {
+    id: 'tapeBackup',
+    category: 'external',
+    required: false,
+    title: 'Tape Library',
+    short: 'Tape',
+    externalObject: 'tape',
+    options: [
+      {
+        name: 'Entry Tape Library',
+        spec: 'External tape backup for small retention sets',
+        price: 120000,
+        backupCapacity: 250,
+        watts: 0.8,
+      },
+      {
+        name: 'Enterprise Tape Library',
+        spec: 'External tape backup with automated media handling',
+        price: 310000,
+        backupCapacity: 900,
+        watts: 1.8,
+      },
+      {
+        name: 'Air-Gapped Tape Library',
+        spec: 'Air-gapped tape tier for resilient backup workflows',
+        price: 620000,
+        backupCapacity: 1800,
+        watts: 3.2,
+      },
+    ],
+  },
+  {
+    id: 'cyberVault',
+    category: 'external',
+    required: false,
+    title: 'Cyber Vault',
+    short: 'Cyber Vault',
+    externalObject: 'vault',
+    options: [
+      {
+        name: 'DR Replication Target',
+        spec: 'External recovery target for replicated critical volumes',
+        price: 260000,
+        recoveryScore: 45,
+        watts: 1.1,
+      },
+      {
+        name: 'Cyber Vault Appliance',
+        spec: 'Isolated recovery copy tier for cyber resilience',
+        price: 640000,
+        recoveryScore: 72,
+        watts: 2.8,
+      },
+      {
+        name: 'Immutable Cyber Vault',
+        spec: 'Advanced immutable vault with rapid validation workflows',
+        price: 1180000,
+        recoveryScore: 94,
+        watts: 5.1,
+      },
     ],
   },
 ];
+
+function isOptionalModule(module) {
+  return module.required === false || module.category === 'external';
+}
 
 function normalizeOptionIndex(module, value) {
   const parsed = Number(value);
@@ -92,11 +364,19 @@ function normalizeOptionIndex(module, value) {
   return Math.min(1, module.options.length - 1);
 }
 
-export function calculateEstimate(selection = {}, availableModules = modules) {
-  const chosen = availableModules.map((module) => {
+function getChosenOptions(selection, availableModules) {
+  return availableModules.flatMap((module) => {
+    if (isOptionalModule(module) && selection[module.id] === undefined) {
+      return [];
+    }
+
     const optionIndex = normalizeOptionIndex(module, selection[module.id]);
-    return module.options[optionIndex];
+    return [module.options[optionIndex]];
   });
+}
+
+export function calculateEstimate(selection = {}, availableModules = modules) {
+  const chosen = getChosenOptions(selection, availableModules);
   const baseWatts = chosen.reduce((sum, item) => sum + item.watts, 0);
   const cooling = chosen.find((item) => item.efficiency);
   const kw = baseWatts * (cooling?.efficiency ?? 1.14);
@@ -104,9 +384,12 @@ export function calculateEstimate(selection = {}, availableModules = modules) {
   const yearlyEnergy = kw * 24 * 365;
   const energyPrice = 0.23;
   const cpu = chosen.reduce((sum, item) => sum + (item.cpu ?? 0), 0);
-  const accelerator = chosen.reduce((sum, item) => sum + (item.accelerator ?? 0), 0);
+  const accelerator = chosen.reduce((sum, item) => sum + (item.accelerator ?? item.aiScore ?? 0), 0);
   const ram = chosen.reduce((sum, item) => sum + (item.ram ?? 0), 0);
   const storage = chosen.reduce((sum, item) => sum + (item.storage ?? 0), 0);
+  const lpars = chosen.reduce((sum, item) => sum + (item.lpars ?? 0), 0);
+  const io = chosen.reduce((sum, item) => sum + (item.io ?? 0), 0);
+  const security = chosen.reduce((sum, item) => sum + (item.security ?? 0), 0);
   const total = chosen.reduce((sum, item) => sum + item.price, 0);
 
   return {
@@ -115,6 +398,9 @@ export function calculateEstimate(selection = {}, availableModules = modules) {
     accelerator,
     ram,
     storage,
+    lpars,
+    io,
+    security,
     kw,
     monthlyEnergy,
     yearlyEnergy,

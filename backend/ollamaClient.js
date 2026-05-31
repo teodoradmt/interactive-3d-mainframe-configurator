@@ -226,26 +226,52 @@ function isExplanationRequest(text) {
   return /обясни|какво\s+е|как\s+работи|кажи\s+ми\s+за|подробно|детайлно|explain/i.test(String(text));
 }
 
-function getOptionIndex(selection, moduleId) {
-  return Number(selection[moduleId] ?? 0);
+function isOptionalModule(module) {
+  return module.required === false || module.category === 'external';
+}
+
+function getOptionIndex(selection, moduleId, fallback = 0) {
+  return Number(selection[moduleId] ?? fallback);
+}
+
+function getSelectedOption(module, selection) {
+  if (isOptionalModule(module) && selection[module.id] === undefined) {
+    return null;
+  }
+
+  return module.options[getOptionIndex(selection, module.id)] ?? null;
 }
 
 function calculateSelectionTotal(modules, selection) {
   return modules.reduce((sum, module) => {
-    const option = module.options[getOptionIndex(selection, module.id)];
+    const option = getSelectedOption(module, selection);
     return sum + (option?.price ?? 0);
   }, 0);
 }
 
 function isSelectionCompleteForModules(modules, selection = {}) {
-  return modules.length > 0 && modules.every((module) => Number.isInteger(Number(selection[module.id])));
+  return modules.length > 0 && modules.every((module) => {
+    if (isOptionalModule(module) && selection[module.id] === undefined) {
+      return true;
+    }
+
+    const optionIndex = Number(selection[module.id]);
+    return Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < module.options.length;
+  });
 }
 
 function normalizeSelection(modules, selection = {}) {
-  return Object.fromEntries(modules.map((module) => [
-    module.id,
-    Math.min(Math.max(Number(selection[module.id] ?? 0), 0), module.options.length - 1),
-  ]));
+  return modules.reduce((normalizedSelection, module) => {
+    if (isOptionalModule(module) && selection[module.id] === undefined) {
+      return normalizedSelection;
+    }
+
+    normalizedSelection[module.id] = Math.min(
+      Math.max(Number(selection[module.id] ?? 0), 0),
+      module.options.length - 1,
+    );
+    return normalizedSelection;
+  }, {});
 }
 
 function getLastSuggestedSelection(messages = [], modules = []) {
@@ -264,6 +290,11 @@ function enumerateSelections(modules, index = 0, current = {}, results = []) {
 
   const module = modules[index];
 
+  if (isOptionalModule(module)) {
+    delete current[module.id];
+    enumerateSelections(modules, index + 1, current, results);
+  }
+
   module.options.forEach((_, optionIndex) => {
     current[module.id] = optionIndex;
     enumerateSelections(modules, index + 1, current, results);
@@ -278,10 +309,14 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
   const total = calculateSelectionTotal(modules, selection);
   const processorIndex = getOptionIndex(selection, 'processor');
   const memoryIndex = getOptionIndex(selection, 'memory');
-  const storageIndex = getOptionIndex(selection, 'storage');
-  const networkIndex = getOptionIndex(selection, 'network');
+  const ioIndex = getOptionIndex(selection, 'storage');
+  const managementIndex = getOptionIndex(selection, 'network');
   const securityIndex = getOptionIndex(selection, 'security');
   const powerIndex = getOptionIndex(selection, 'power');
+  const coolingIndex = getOptionIndex(selection, 'cooling');
+  const externalDASDIndex = getOptionIndex(selection, 'externalDASD', -1);
+  const tapeBackupIndex = getOptionIndex(selection, 'tapeBackup', -1);
+  const cyberVaultIndex = getOptionIndex(selection, 'cyberVault', -1);
   let score = 0;
 
   if (budget) {
@@ -307,12 +342,13 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
   if (workload === 'high') {
     score += processorIndex * 85;
     score += memoryIndex * 42;
-    score += storageIndex * 26;
-    score += networkIndex * 42;
+    score += ioIndex * 42;
+    score += managementIndex * 18;
     score += securityIndex * 34;
     score += powerIndex * 12;
+    score += coolingIndex * 12;
 
-    if (processorIndex === 2 && memoryIndex >= 1 && networkIndex >= 1) {
+    if (processorIndex === 2 && memoryIndex >= 1 && ioIndex >= 1) {
       score += 85;
     }
 
@@ -322,38 +358,40 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
   } else if (workload === 'medium') {
     score += 80 - Math.abs(processorIndex - 1) * 34;
     score += 55 - Math.abs(memoryIndex - 1) * 24;
-    score += 42 - Math.abs(storageIndex - 1) * 18;
-    score += 42 - Math.abs(networkIndex - 1) * 18;
+    score += 42 - Math.abs(ioIndex - 1) * 18;
+    score += 30 - Math.abs(managementIndex - 1) * 12;
     score += 38 - Math.abs(securityIndex - 1) * 16;
     score -= Math.abs(powerIndex - 1) * 6;
+    score -= Math.abs(coolingIndex - 1) * 6;
   } else {
     score += (2 - processorIndex) * 35;
     score += (2 - memoryIndex) * 22;
-    score += (2 - storageIndex) * 10;
-    score += (2 - networkIndex) * 12;
-    score += (2 - powerIndex) * 12;
+    score += (2 - ioIndex) * 12;
+    score += (2 - managementIndex) * 8;
+    score += (2 - powerIndex) * 6;
+    score += (2 - coolingIndex) * 6;
     score -= budgetMode === 'open' ? total / 500_000 : total / 160_000;
   }
 
   if (/банка|bank|финанс|finance|плащ|payment|транзак|transaction/.test(normalized)) {
     if (workload === 'high') {
       score += processorIndex * 38;
-      score += networkIndex * 18;
+      score += ioIndex * 18;
       score += securityIndex * 30;
 
       if (processorIndex >= 1 && securityIndex >= 1) {
         score += 70;
       }
 
-      if (processorIndex === 0 && (networkIndex === 2 || securityIndex === 2)) {
+      if (processorIndex === 0 && (ioIndex === 2 || securityIndex === 2)) {
         score -= 80;
       }
     } else if (workload === 'medium') {
       score += processorIndex * 18;
-      score += networkIndex * 16;
+      score += ioIndex * 16;
       score += securityIndex * 24;
     } else {
-      score += networkIndex * 8;
+      score += ioIndex * 8;
       score += securityIndex * 22;
       score -= processorIndex * 12;
     }
@@ -361,7 +399,7 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
 
   if (/университет|linux|малк|пилот|лаборатор/.test(normalized)) {
     score += (2 - processorIndex) * 10;
-    score += (2 - powerIndex) * 5;
+    score += (2 - coolingIndex) * 5;
     score -= total / 220_000;
   }
 
@@ -375,13 +413,26 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
   }
 
   if (/storage|данни|архив|pb|съхран/.test(normalized)) {
-    score += storageIndex * 18;
+    score += (externalDASDIndex + 1) * 36;
+    score += ioIndex * 12;
+
+    if (externalDASDIndex < 0) {
+      score -= 28;
+    }
   }
 
   if (/охлаж|cooling|liquid|висока плътност|high-density/.test(normalized)) {
-    score += powerIndex * 18;
+    score += coolingIndex * 18;
   } else {
-    score -= powerIndex * 6;
+    score -= coolingIndex * 6;
+  }
+
+  if (/backup|tape|Ð±ÐµÐºÑŠÐ¿|Ð°Ñ€Ñ…Ð¸Ð²/.test(normalized)) {
+    score += (tapeBackupIndex + 1) * 28;
+  }
+
+  if (/vault|disaster|recovery|dr|cyber|Ð²ÑŠÐ·ÑÑ‚Ð°Ð½Ð¾Ð²|ÐºÐ¸Ð±ÐµÑ€/.test(normalized)) {
+    score += (cyberVaultIndex + 1) * 32;
   }
 
   if (/иконом|евтин|нисък бюджет|ограничен/.test(normalized)) {
@@ -395,9 +446,17 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
   return score;
 }
 
+function getSelectionRank(module, selection) {
+  if (isOptionalModule(module) && selection[module.id] === undefined) {
+    return -1;
+  }
+
+  return Number(selection[module.id] ?? 0);
+}
+
 function getSelectionChangeCount(modules, firstSelection, secondSelection) {
   return modules.reduce((count, module) => (
-    Number(firstSelection[module.id]) === Number(secondSelection[module.id]) ? count : count + 1
+    getSelectionRank(module, firstSelection) === getSelectionRank(module, secondSelection) ? count : count + 1
   ), 0);
 }
 
@@ -406,26 +465,30 @@ function getUpgradeScore(modules, baseSelection, candidateSelection) {
     processor: 5,
     memory: 3,
     storage: 2.5,
-    network: 2.5,
+    network: 1.4,
     security: 2,
-    power: 0.6,
+    power: 0.8,
+    cooling: 0.8,
+    externalDASD: 2.5,
+    tapeBackup: 1.2,
+    cyberVault: 1.8,
   };
 
   return modules.reduce((score, module) => {
-    const delta = Number(candidateSelection[module.id]) - Number(baseSelection[module.id]);
+    const delta = getSelectionRank(module, candidateSelection) - getSelectionRank(module, baseSelection);
 
     return score + Math.max(0, delta) * (weights[module.id] ?? 1);
   }, 0);
 }
 
 function hasNoDowngrades(modules, baseSelection, candidateSelection) {
-  return modules.every((module) => Number(candidateSelection[module.id]) >= Number(baseSelection[module.id]));
+  return modules.every((module) => getSelectionRank(module, candidateSelection) >= getSelectionRank(module, baseSelection));
 }
 
 function canUpgradeModule(modules, selection, moduleId) {
   const module = modules.find((item) => item.id === moduleId);
 
-  return module ? Number(selection[moduleId]) < module.options.length - 1 : false;
+  return module ? getSelectionRank(module, selection) < module.options.length - 1 : false;
 }
 
 function formatEuro(value) {
@@ -522,18 +585,22 @@ function createSuggestionFromSelection({ budget = null, budgetMode = 'fixed', mo
     selection: normalizedSelection,
     total: calculateSelectionTotal(modules, normalizedSelection),
     workload,
-    items: modules.map((module) => {
+    items: modules.flatMap((module) => {
+      if (isOptionalModule(module) && normalizedSelection[module.id] === undefined) {
+        return [];
+      }
+
       const optionIndex = getOptionIndex(normalizedSelection, module.id);
       const option = module.options[optionIndex];
 
-      return {
+      return [{
         moduleId: module.id,
         moduleTitle: module.title,
         moduleShort: module.short,
         optionIndex,
         optionName: option.name,
         optionOrdinal: getOptionOrdinal(optionIndex),
-      };
+      }];
     }),
   };
 }
@@ -541,8 +608,10 @@ function createSuggestionFromSelection({ budget = null, budgetMode = 'fixed', mo
 function describeSuggestionReason(suggestion) {
   const cpu = suggestion.items.find((item) => item.moduleId === 'processor')?.optionName;
   const memory = suggestion.items.find((item) => item.moduleId === 'memory')?.optionName;
-  const network = suggestion.items.find((item) => item.moduleId === 'network')?.optionName;
+  const io = suggestion.items.find((item) => item.moduleId === 'storage')?.optionName;
   const security = suggestion.items.find((item) => item.moduleId === 'security')?.optionName;
+  const externalStorage = suggestion.items.find((item) => item.moduleId === 'externalDASD')?.optionName;
+  const network = externalStorage ? `${io}; External DASD: ${externalStorage}` : io;
   const workloadText = {
     low: 'ниска натовареност',
     medium: 'средна натовареност',
@@ -752,6 +821,11 @@ function buildAdjustedConfigurationReply(adjustment) {
 function findModuleByText(modules, text) {
   const normalized = String(text).toLowerCase();
   const aliases = [
+    ['externalDASD', /storage|dasd|disk|data|ds8900/],
+    ['cyberVault', /vault|disaster|recovery|dr|cyber/],
+    ['tapeBackup', /tape|backup|archive/],
+    ['cooling', /cooling|liquid|heat exchanger|thermal/],
+    ['network', /management|hmc|support element|monitoring|control/],
     ['processor', /cpu|процесор|generation|z15|z16|z17|telum/],
     ['memory', /ram|памет|memory|raim/],
     ['storage', /storage|диск|данни|архив|ds8900|vault/],
@@ -857,6 +931,14 @@ function getModuleRoleDescription(module) {
     power:
       'Power & Cooling модулът описва как системата се захранва и охлажда, което влияе на експлоатационния разход и възможността за по-плътна конфигурация.',
   };
+
+  descriptions.storage = 'I/O Connectivity Drawers define OSA, FICON, Fibre Channel and high-throughput fabric links to external systems.';
+  descriptions.network = 'Management & Control covers HMC, Support Elements, monitoring and operational manageability.';
+  descriptions.power = 'Power Infrastructure covers redundant power, battery support and shutdown protection inside the CPC frame.';
+  descriptions.cooling = 'Cooling Infrastructure controls thermal headroom, electricity efficiency and supported maximum performance.';
+  descriptions.externalDASD = 'External DASD Storage is a separate storage cabinet attached through FICON / SAN rather than an internal CPC drawer.';
+  descriptions.tapeBackup = 'Tape Library is an optional external system for backup and retention workflows.';
+  descriptions.cyberVault = 'Cyber Vault is an optional external recovery and cyber-resilience system.';
 
   return descriptions[module.id] ?? 'Този модул участва в цялостната IBM Z конфигурация и влияе на капацитета, цената и приложимостта на системата.';
 }

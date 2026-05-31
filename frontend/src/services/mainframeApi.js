@@ -2,7 +2,15 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3001';
 
 async function fetchJson(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
-  const payload = await response.json().catch(() => null);
+  let payload = null;
+
+  try {
+    payload = await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+  }
 
   if (!response.ok) {
     const isMissingAuthRoute = response.status === 404 && path.startsWith('/api/auth/');

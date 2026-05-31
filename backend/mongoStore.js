@@ -82,6 +82,7 @@ function serializeConfiguration(configuration) {
     designId: configuration.designId ?? '',
     designName: configuration.designName ?? '',
     background: configuration.background ?? null,
+    frameConfiguration: configuration.frameConfiguration ?? null,
     modulesSnapshot: configuration.modulesSnapshot ?? [],
     createdAt: configuration.createdAt,
     updatedAt: configuration.updatedAt,
@@ -115,11 +116,14 @@ async function findExistingConfigurationByName(collection, userId, normalizedNam
 
 function cloneModuleForMongo(module, order) {
   return {
+    category: module.category,
+    externalObject: module.externalObject,
     id: module.id,
-    title: module.title,
-    short: module.short,
     options: module.options.map((option) => ({ ...option })),
     order,
+    required: module.required,
+    short: module.short,
+    title: module.title,
   };
 }
 
@@ -164,6 +168,9 @@ async function ensureAccountIndexes() {
 
 async function writeDefaultModules(collection) {
   await createIndexes(collection);
+  await collection.deleteMany({
+    id: { $nin: defaultModules.map((module) => module.id) },
+  });
 
   return collection.bulkWrite(
     defaultModules.map((module, index) => ({
@@ -178,9 +185,27 @@ async function writeDefaultModules(collection) {
 
 async function ensureModulesSeeded(collection) {
   seedPromise ??= (async () => {
-    const count = await collection.estimatedDocumentCount();
+    const storedModules = await collection
+      .find({})
+      .project({ category: 1, id: 1, options: 1, required: 1, short: 1, title: 1 })
+      .toArray();
+    const expectedIds = new Set(defaultModules.map((module) => module.id));
+    const expectedModulesById = new Map(defaultModules.map((module) => [module.id, module]));
+    const isCatalogCurrent =
+      storedModules.length === expectedIds.size
+      && storedModules.every((module) => {
+        const expectedModule = expectedModulesById.get(module.id);
 
-    if (count === 0) {
+        return expectedModule
+          && module.title === expectedModule.title
+          && module.short === expectedModule.short
+          && module.category === expectedModule.category
+          && module.required === expectedModule.required
+          && module.options?.length === expectedModule.options.length
+          && module.options.every((option, index) => option.name === expectedModule.options[index].name);
+      });
+
+    if (!isCatalogCurrent) {
       await writeDefaultModules(collection);
     }
   })();
@@ -372,6 +397,7 @@ export async function saveUserConfiguration(userId, configuration) {
     background: configuration.background,
     designId: configuration.designId,
     designName: configuration.designName,
+    frameConfiguration: configuration.frameConfiguration,
     modulesSnapshot: configuration.modulesSnapshot,
     name: configuration.name,
     normalizedName,

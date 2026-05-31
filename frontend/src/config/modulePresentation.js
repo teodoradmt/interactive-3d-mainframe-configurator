@@ -1,48 +1,70 @@
 import {
+  Archive,
+  BatteryCharging,
+  Cable,
   Cpu,
   Database,
   HardDrive,
-  Network,
+  MonitorCog,
   ShieldCheck,
-  Snowflake,
+  ShieldAlert,
+  ThermometerSnowflake,
 } from 'lucide-react';
 
 export const MODULE_UI = {
   processor: {
     icon: Cpu,
     color: '#39a7db',
-    position: [0, 1.72, 0.18],
-    size: [2.55, 0.46, 0.2],
+    position: [0, 1.74, 0.18],
+    size: [2.55, 0.36, 0.2],
   },
   memory: {
     icon: Database,
     color: '#32b36a',
-    position: [0, 1.08, 0.18],
-    size: [2.55, 0.46, 0.2],
+    position: [0, 1.2, 0.18],
+    size: [2.55, 0.36, 0.2],
   },
   storage: {
-    icon: HardDrive,
+    icon: Cable,
     color: '#d99a2b',
-    position: [0, 0.44, 0.18],
-    size: [2.55, 0.46, 0.2],
+    position: [0, 0.66, 0.18],
+    size: [2.55, 0.36, 0.2],
   },
   network: {
-    icon: Network,
+    icon: MonitorCog,
     color: '#8f6ee8',
-    position: [0, -0.2, 0.18],
-    size: [2.55, 0.46, 0.2],
+    position: [0, 0.12, 0.18],
+    size: [2.55, 0.36, 0.2],
   },
   security: {
     icon: ShieldCheck,
     color: '#d95c5c',
-    position: [0, -0.84, 0.18],
-    size: [2.55, 0.46, 0.2],
+    position: [0, -0.42, 0.18],
+    size: [2.55, 0.36, 0.2],
   },
   power: {
-    icon: Snowflake,
+    icon: BatteryCharging,
     color: '#25b5a3',
-    position: [0, -1.48, 0.18],
-    size: [2.55, 0.46, 0.2],
+    position: [0, -0.96, 0.18],
+    size: [2.55, 0.36, 0.2],
+  },
+  cooling: {
+    icon: ThermometerSnowflake,
+    color: '#62c7ea',
+    position: [0, -1.5, 0.18],
+    size: [2.55, 0.36, 0.2],
+  },
+  externalDASD: {
+    icon: HardDrive,
+    color: '#f5c15c',
+  },
+  tapeBackup: {
+    icon: Archive,
+    color: '#b7c0c7',
+  },
+  cyberVault: {
+    icon: ShieldAlert,
+    color: '#7d8df1',
   },
 };
 
@@ -56,5 +78,7 @@ export function mergeModulePresentation(apiModules) {
 }
 
 export function isSelectionComplete(modules, selection) {
-  return modules.length > 0 && modules.every((module) => selection[module.id] !== undefined);
+  const requiredModules = modules.filter((module) => module.required !== false && module.category !== 'external');
+
+  return requiredModules.length > 0 && requiredModules.every((module) => selection[module.id] !== undefined);
 }

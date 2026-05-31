@@ -609,6 +609,11 @@ export function ProfilePage({
                 </div>
 
                 <div className="configuration-options">
+                  {configuration.frameConfiguration?.effectiveFrameName && (
+                    <span>
+                      Frame: {configuration.frameConfiguration.effectiveFrameName}
+                    </span>
+                  )}
                   {configuration.modulesSnapshot.slice(0, 4).map((item) => (
                     <span key={item.moduleId}>
                       {item.moduleShort}: {item.option.name}

@@ -50,8 +50,14 @@ class HttpError extends Error {
   }
 }
 
+function isOptionalModule(module) {
+  return module.required === false || module.category === 'external';
+}
+
 function isSelectionComplete(selection, modules) {
-  return modules.every((module) => selection[module.id] !== undefined);
+  return modules
+    .filter((module) => !isOptionalModule(module))
+    .every((module) => selection[module.id] !== undefined);
 }
 
 function sendJson(response, statusCode, payload) {
@@ -219,6 +225,10 @@ function validateSelection(selection, modules) {
   const normalizedSelection = {};
 
   for (const module of modules) {
+    if (isOptionalModule(module) && selection[module.id] === undefined) {
+      continue;
+    }
+
     const optionIndex = Number(selection[module.id]);
 
     if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= module.options.length) {
@@ -232,20 +242,22 @@ function validateSelection(selection, modules) {
 }
 
 function buildConfigurationSnapshot(modules, selection) {
-  return modules.map((module) => {
-    const selectedIndex = selection[module.id];
-    const option = module.options[selectedIndex];
+  return modules
+    .filter((module) => !isOptionalModule(module) || selection[module.id] !== undefined)
+    .map((module) => {
+      const selectedIndex = selection[module.id];
+      const option = module.options[selectedIndex];
 
-    return {
-      moduleId: module.id,
-      moduleTitle: module.title,
-      moduleShort: module.short,
-      selectedIndex,
-      option: {
-        ...option,
-      },
-    };
-  });
+      return {
+        moduleId: module.id,
+        moduleTitle: module.title,
+        moduleShort: module.short,
+        selectedIndex,
+        option: {
+          ...option,
+        },
+      };
+    });
 }
 
 function sanitizeBackground(background) {
@@ -269,6 +281,39 @@ function sanitizeBackground(background) {
   return {
     color,
     type: 'color',
+  };
+}
+
+function sanitizeFrameConfiguration(frameConfiguration) {
+  if (!frameConfiguration || typeof frameConfiguration !== 'object') {
+    return {
+      selectedFrameId: 'auto',
+    };
+  }
+
+  const selectableFrameIds = new Set(['auto', 'single-z', 'z-plus-a']);
+  const concreteFrameIds = new Set(['single-z', 'z-plus-a']);
+  const selectedFrameId = selectableFrameIds.has(frameConfiguration.selectedFrameId)
+    ? frameConfiguration.selectedFrameId
+    : 'auto';
+  const effectiveFrameId = concreteFrameIds.has(frameConfiguration.effectiveFrameId)
+    ? frameConfiguration.effectiveFrameId
+    : concreteFrameIds.has(selectedFrameId) ? selectedFrameId : 'single-z';
+  const recommendedFrameId = concreteFrameIds.has(frameConfiguration.recommendedFrameId)
+    ? frameConfiguration.recommendedFrameId
+    : effectiveFrameId;
+  const warnings = Array.isArray(frameConfiguration.warnings)
+    ? frameConfiguration.warnings.slice(0, 12).map((message) => sanitizeText(message, { maxLength: 180 }))
+    : [];
+
+  return {
+    effectiveFrameId,
+    effectiveFrameName: sanitizeText(frameConfiguration.effectiveFrameName, { maxLength: 80 }),
+    isValid: Boolean(frameConfiguration.isValid),
+    recommendedFrameId,
+    recommendedFrameName: sanitizeText(frameConfiguration.recommendedFrameName, { maxLength: 80 }),
+    selectedFrameId,
+    warnings,
   };
 }
 
@@ -373,6 +418,7 @@ async function handleSaveConfiguration(request, response) {
     background: sanitizeBackground(payload.background),
     designId: sanitizeText(payload.designId, { maxLength: 64 }),
     designName: sanitizeText(payload.designName, { maxLength: 80 }),
+    frameConfiguration: sanitizeFrameConfiguration(payload.frameConfiguration),
     modulesSnapshot: buildConfigurationSnapshot(modules, selection),
     name,
     selection,
