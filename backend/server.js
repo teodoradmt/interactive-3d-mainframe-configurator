@@ -599,7 +599,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     sendJson(response, 404, {
-      error: 'Not found',
+      error: 'Не е намерено.',
     });
   } catch (error) {
     sendError(response, error);

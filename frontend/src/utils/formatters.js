@@ -17,7 +17,7 @@ export function formatOptionSpec(option) {
   }
 
   if (option.cpu) {
-    return `${number.format(option.cpu)} capacity units`;
+    return `${number.format(option.cpu)} капацитетни единици`;
   }
 
   if (option.ram) {

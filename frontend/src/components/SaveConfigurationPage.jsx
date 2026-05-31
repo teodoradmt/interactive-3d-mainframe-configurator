@@ -141,10 +141,10 @@ export function SaveConfigurationPage({
             </div>
             <div>
               <span>Капацитет</span>
-              <strong>{number.format(displayTotals.cpu)} units</strong>
+              <strong>{number.format(displayTotals.cpu)} единици</strong>
             </div>
             <div>
-              <span>AI score</span>
+              <span>AI оценка</span>
               <strong>{number.format(displayTotals.accelerator)}</strong>
             </div>
           </div>
@@ -172,9 +172,9 @@ export function SaveConfigurationPage({
 
           <div className="saved-options-preview">
             <div>
-              <span>Frame Configuration</span>
+              <span>Frame конфигурация</span>
               <strong>{frameEvaluation.effectiveFrame.name}</strong>
-              <small>{frameEvaluation.isValid ? 'Valid infrastructure layout' : 'Warnings need review'}</small>
+              <small>{frameEvaluation.isValid ? 'Валидна инфраструктурна конфигурация' : 'Има предупреждения за преглед'}</small>
             </div>
             {selectedModules.map(({ module, option }) => (
               <div key={module.id}>

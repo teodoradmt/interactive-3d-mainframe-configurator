@@ -427,11 +427,11 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
     score -= coolingIndex * 6;
   }
 
-  if (/backup|tape|Ð±ÐµÐºÑŠÐ¿|Ð°Ñ€Ñ…Ð¸Ð²/.test(normalized)) {
+  if (/backup|tape|бекъп|архив/.test(normalized)) {
     score += (tapeBackupIndex + 1) * 28;
   }
 
-  if (/vault|disaster|recovery|dr|cyber|Ð²ÑŠÐ·ÑÑ‚Ð°Ð½Ð¾Ð²|ÐºÐ¸Ð±ÐµÑ€/.test(normalized)) {
+  if (/vault|disaster|recovery|dr|cyber|възстанов|кибер/.test(normalized)) {
     score += (cyberVaultIndex + 1) * 32;
   }
 
@@ -919,7 +919,7 @@ function buildModuleComparisonReply({ module, text, workload }) {
 function getModuleRoleDescription(module) {
   const descriptions = {
     processor:
-      'CPU генерацията определя основната изчислителна мощност, възможностите за модерни workloads и колко добре системата ще поеме транзакции, аналитика и виртуализация.',
+      'CPU генерацията определя основната изчислителна мощност, възможностите за модерни работни натоварвания и колко добре системата ще поеме транзакции, аналитика и виртуализация.',
     memory:
       'Memory/RAIM модулът определя колко големи LPAR-и, бази данни и in-memory процеси могат да работят стабилно без недостиг на RAM.',
     storage:
@@ -932,13 +932,13 @@ function getModuleRoleDescription(module) {
       'Power & Cooling модулът описва как системата се захранва и охлажда, което влияе на експлоатационния разход и възможността за по-плътна конфигурация.',
   };
 
-  descriptions.storage = 'I/O Connectivity Drawers define OSA, FICON, Fibre Channel and high-throughput fabric links to external systems.';
-  descriptions.network = 'Management & Control covers HMC, Support Elements, monitoring and operational manageability.';
-  descriptions.power = 'Power Infrastructure covers redundant power, battery support and shutdown protection inside the CPC frame.';
-  descriptions.cooling = 'Cooling Infrastructure controls thermal headroom, electricity efficiency and supported maximum performance.';
-  descriptions.externalDASD = 'External DASD Storage is a separate storage cabinet attached through FICON / SAN rather than an internal CPC drawer.';
-  descriptions.tapeBackup = 'Tape Library is an optional external system for backup and retention workflows.';
-  descriptions.cyberVault = 'Cyber Vault is an optional external recovery and cyber-resilience system.';
+  descriptions.storage = 'I/O connectivity модулите определят OSA, FICON, Fibre Channel и high-throughput fabric връзките към външни системи.';
+  descriptions.network = 'Management & Control покрива HMC, Support Elements, monitoring и operational manageability.';
+  descriptions.power = 'Power инфраструктурата покрива redundant power, battery support и shutdown protection в CPC frame.';
+  descriptions.cooling = 'Cooling инфраструктурата контролира thermal headroom, енергийната ефективност и максималната поддържана производителност.';
+  descriptions.externalDASD = 'External DASD storage е отделен storage cabinet, свързан чрез FICON / SAN, а не вътрешен CPC drawer.';
+  descriptions.tapeBackup = 'Tape Library е опционална външна система за backup и retention workflows.';
+  descriptions.cyberVault = 'Cyber Vault е опционална външна recovery и cyber-resilience система.';
 
   return descriptions[module.id] ?? 'Този модул участва в цялостната IBM Z конфигурация и влияе на капацитета, цената и приложимостта на системата.';
 }
@@ -1103,7 +1103,7 @@ function formatCompactChatMessages(messages = []) {
   return messages
     .slice(-chatHistoryMessages)
     .map((message) => {
-      const role = message.role === 'assistant' ? 'AI' : 'User';
+      const role = message.role === 'assistant' ? 'AI' : 'Потребител';
       return `${role}: ${String(message.content ?? '').slice(0, chatHistoryChars)}`;
     })
     .join('\n');
@@ -1136,7 +1136,7 @@ function buildFallbackRecommendation({ estimate }) {
   const yearlyCost = Math.round(estimate.yearlyCost);
 
   return [
-    `1. Подходящост: Тази конфигурация е подходяща за клиентска IBM Z среда с нужда от ${estimate.cpu} demo CPU units и ${estimate.storage} TB storage.`,
+    `1. Подходящост: Тази конфигурация е подходяща за клиентска IBM Z среда с нужда от ${estimate.cpu} demo CPU единици и ${estimate.storage} TB storage.`,
     `2. Баланс: Тя е добре балансирана, защото комбинира ${estimate.ram} GB RAM, ${estimate.storage} TB storage и ${estimate.kw.toFixed(1)} kW приблизителна мощност.`,
     `3. Внимание: Планирайте приблизително ${yearlyCost} EUR годишен разход за електроенергия.`,
     '4. Следваща стъпка: За повече съвети попитайте Mainframe4o.',

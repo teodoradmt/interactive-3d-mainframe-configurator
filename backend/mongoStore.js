@@ -215,7 +215,7 @@ async function ensureModulesSeeded(collection) {
 
 function warnAboutFallback(error) {
   if (!fallbackWarningShown) {
-    console.warn(`[mongodb] ${error.message}. Using demo data from backend/mainframeData.js.`);
+    console.warn(`[mongodb] ${error.message}. Използват се demo данните от backend/mainframeData.js.`);
     fallbackWarningShown = true;
   }
 }

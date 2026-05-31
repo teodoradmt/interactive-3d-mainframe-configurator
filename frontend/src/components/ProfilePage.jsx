@@ -386,7 +386,7 @@ export function ProfilePage({
     const printWindow = window.open('', '_blank');
 
     if (!printWindow) {
-      setError('Браузърът блокира новия прозорец за PDF export.');
+      setError('Браузърът блокира новия прозорец за PDF експорт.');
       return;
     }
 
@@ -482,7 +482,7 @@ export function ProfilePage({
       try {
         await logoutUser(authToken);
       } catch {
-        // The local session still has to be cleared even if the backend token is already gone.
+        // Локалната сесия пак трябва да се изчисти, дори backend token-ът вече да липсва.
       } finally {
         setIsConfirming(false);
         closeConfirmation();

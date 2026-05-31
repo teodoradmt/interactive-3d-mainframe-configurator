@@ -205,7 +205,7 @@ export function MainframeChat({ onApplySelection, selection }) {
           <Bot size={18} />
           Mainframe4o
         </span>
-        <small>local Qwen3</small>
+        <small>локален Qwen3</small>
       </div>
 
       {!isChatStarted ? (

@@ -33,7 +33,7 @@ export function FrameConfigurationPanel({
   const selectedOption = getFrameSelectionOption(selectedFrameId);
   const effectiveFrame = frameEvaluation.effectiveFrame;
   const isAutoSelected = selectedFrameId === FRAME_AUTO_ID;
-  const triggerValue = isAutoSelected ? 'Auto' : effectiveFrame.shortName;
+  const triggerValue = isAutoSelected ? 'Авто' : effectiveFrame.shortName;
 
   useEffect(() => {
     if (!isOpen) {
@@ -81,36 +81,36 @@ export function FrameConfigurationPanel({
             role="dialog"
           >
             <div className="design-modal-head">
-              <h2>Frame Configuration</h2>
-              <button aria-label="Close" className="design-close-button" onClick={() => setIsOpen(false)} type="button">
+              <h2>Frame конфигурация</h2>
+              <button aria-label="Затвори" className="design-close-button" onClick={() => setIsOpen(false)} type="button">
                 <X size={18} />
               </button>
             </div>
 
             <div className="frame-status-grid">
               <div>
-                <span>Current frame</span>
-                <strong>{isAutoSelected ? `Auto: ${effectiveFrame.name}` : effectiveFrame.name}</strong>
+                <span>Текущ frame</span>
+                <strong>{isAutoSelected ? `Авто: ${effectiveFrame.name}` : effectiveFrame.name}</strong>
               </div>
               <div>
-                <span>Recommended frame</span>
+                <span>Препоръчан frame</span>
                 <strong>{frameEvaluation.recommendedFrame.name}</strong>
                 {!frameEvaluation.isRecommendedApplied && (
                   <button className="frame-apply-button" onClick={onApplyRecommendedFrame} type="button">
-                    Apply Recommended Frame
+                    Приложи препоръчания frame
                   </button>
                 )}
               </div>
               <div className={frameEvaluation.isValid ? 'valid' : 'invalid'}>
-                <span>Configuration</span>
+                <span>Конфигурация</span>
                 <strong>
                   {frameEvaluation.isValid ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                  {frameEvaluation.isValid ? 'Valid' : 'Invalid'}
+                  {frameEvaluation.isValid ? 'Валидна' : 'Невалидна'}
                 </strong>
               </div>
             </div>
 
-            <div className="frame-options" role="radiogroup" aria-label="Frame configuration">
+            <div className="frame-options" role="radiogroup" aria-label="Frame конфигурация">
               {frameSelectionOptions.map((frame) => {
                 const isSelected = selectedFrameId === frame.id;
                 const previewFrameCount = frame.id === FRAME_AUTO_ID

@@ -8,7 +8,7 @@ export const frameConfigurations = [
     shortName: 'Z Frame',
     tier: 1,
     frameCount: 1,
-    description: 'Primary CPC frame with a left-side door that opens to the left.',
+    description: 'Основен CPC frame с врата отляво, която се отваря наляво.',
   },
   {
     id: 'z-plus-a',
@@ -16,17 +16,17 @@ export const frameConfigurations = [
     shortName: 'Z + A',
     tier: 2,
     frameCount: 2,
-    description: 'Enterprise pair with the Z Frame door on the left and the A Frame door on the right.',
+    description: 'Enterprise двойка: Z Frame е с врата отляво, A Frame е с врата отдясно.',
   },
 ];
 
 export const frameSelectionOptions = [
   {
     id: FRAME_AUTO_ID,
-    name: 'Auto',
-    shortName: 'Auto',
+    name: 'Авто',
+    shortName: 'Авто',
     frameCount: 1,
-    description: 'Automatically selects Z Frame or Z Frame + A Frame based on the selected modules.',
+    description: 'Автоматично избира Z Frame или Z Frame + A Frame според избраните модули.',
   },
   ...frameConfigurations,
 ];
@@ -97,18 +97,18 @@ function clampScore(value) {
 
 function getReadinessLabel(score) {
   if (score >= 86) {
-    return 'Very High';
+    return 'Много висока';
   }
 
   if (score >= 70) {
-    return 'High';
+    return 'Висока';
   }
 
   if (score >= 46) {
-    return 'Medium';
+    return 'Средна';
   }
 
-  return 'Low';
+  return 'Ниска';
 }
 
 function getDisasterRecoveryTier({ cyberSelected, tapeSelected, externalDASDIndex }) {
@@ -117,14 +117,14 @@ function getDisasterRecoveryTier({ cyberSelected, tapeSelected, externalDASDInde
   }
 
   if (tapeSelected) {
-    return 'Tape Recovery';
+    return 'Tape recovery';
   }
 
   if (externalDASDIndex !== undefined) {
-    return 'DASD Recovery';
+    return 'DASD recovery';
   }
 
-  return 'None';
+  return 'Няма';
 }
 
 function getStorageReadiness({ externalCount, externalDASDIndex, tapeSelected, cyberSelected }) {
@@ -177,93 +177,93 @@ function validateFrame(selectedFrame, context) {
   const info = [];
 
   if (context.externalCount === 0) {
-    info.push('No external storage selected. This configuration is suitable for demo/development only. Production workloads usually require external DASD or enterprise storage.');
+    info.push('Не е избран external storage. Тази конфигурация е подходяща само за demo/development сценарии. Production работните натоварвания обикновено изискват external DASD или enterprise storage.');
   }
 
   if (context.processorIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('AI-Accelerated CPC requires Z Frame + A Frame.');
+    warnings.push('AI-Accelerated CPC изисква Z Frame + A Frame.');
   }
 
   if (context.processorIndex === 2 && context.coolingIndex < 2) {
-    warnings.push('Selected cooling is not sufficient for AI-Accelerated CPC. Please choose Liquid-Cooling Ready or upgrade the frame.');
+    warnings.push('Избраният cooling не е достатъчен за AI-Accelerated CPC. Изберете Liquid-Cooling Ready или надградете frame конфигурацията.');
   }
 
   if (context.memoryIndex === 2 && context.processorIndex === 0) {
-    warnings.push('12 TB RAIM requires Enterprise Processor Complex or AI-Accelerated CPC.');
+    warnings.push('12 TB RAIM изисква Enterprise Processor Complex или AI-Accelerated CPC.');
   }
 
   if (context.memoryIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('This configuration requires a larger frame because the selected CPC and memory exceed Z Frame capacity.');
+    warnings.push('Тази конфигурация изисква по-голям frame, защото избраните CPC и memory надвишават капацитета на Z Frame.');
   }
 
   if (context.processorIndex === 1 && context.memoryIndex >= 2 && context.coolingIndex === 0) {
-    warnings.push('Enterprise CPC with higher memory should use Rear Door Heat Exchanger or Liquid-Cooling Ready infrastructure.');
+    warnings.push('Enterprise CPC с по-голяма memory трябва да използва Rear Door Heat Exchanger или Liquid-Cooling Ready инфраструктура.');
   }
 
   if (context.ioIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('Enterprise I/O Fabric requires additional PCIe I/O drawer capacity. Upgrade the frame.');
+    warnings.push('Enterprise I/O Fabric изисква допълнителен PCIe I/O drawer капацитет. Надградете frame конфигурацията.');
   }
 
   if (context.coolingIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('Liquid cooling requires Z Frame + A Frame.');
+    warnings.push('Liquid cooling изисква Z Frame + A Frame.');
   }
 
   if (context.powerIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('UPS-backed enterprise power requires Z Frame + A Frame.');
+    warnings.push('UPS-backed enterprise power изисква Z Frame + A Frame.');
   }
 
   if (context.externalDASDIndex !== undefined && context.ioIndex < 1) {
-    warnings.push('External DASD requires FICON / Fibre Channel connectivity or better.');
+    warnings.push('External DASD изисква FICON / Fibre Channel свързаност или по-високо ниво.');
   }
 
   if (context.externalDASDIndex !== undefined && context.externalDASDIndex >= 1 && context.ioIndex < 2) {
-    warnings.push('External DASD is supported, but this selected DASD tier requires stronger I/O connectivity.');
+    warnings.push('External DASD се поддържа, но избраното DASD ниво изисква по-силна I/O свързаност.');
   }
 
   if (context.tapeSelected && context.ioIndex < 1) {
-    warnings.push('Tape Library requires FICON connectivity.');
+    warnings.push('Tape Library изисква FICON свързаност.');
   }
 
   if (context.tapeSelected && context.managementIndex < 2) {
-    warnings.push('Tape Library requires Advanced Monitoring & Control.');
+    warnings.push('Tape Library изисква Advanced Monitoring & Control.');
   }
 
   if (context.cyberSelected && context.managementIndex < 2) {
-    warnings.push('Cyber Vault requires Advanced Monitoring & Control.');
+    warnings.push('Cyber Vault изисква Advanced Monitoring & Control.');
   }
 
   if (context.cyberSelected && context.securityIndex < 2) {
-    warnings.push('Cyber Vault requires Quantum-Safe Security Suite.');
+    warnings.push('Cyber Vault изисква Quantum-Safe Security Suite.');
   }
 
   if (context.cyberSelected && context.ioIndex < 2) {
-    warnings.push('Cyber Vault requires Enterprise I/O Fabric.');
+    warnings.push('Cyber Vault изисква Enterprise I/O Fabric.');
   }
 
   if (context.cyberSelected && selectedFrame.tier < 2) {
-    warnings.push('Cyber Vault requires a larger enterprise frame infrastructure.');
+    warnings.push('Cyber Vault изисква по-голяма enterprise frame инфраструктура.');
   }
 
   if (context.externalCount > 1 && selectedFrame.tier < 2) {
-    warnings.push('Multiple external systems require Z Frame + A Frame.');
+    warnings.push('Няколко външни системи изискват Z Frame + A Frame.');
   }
 
   if (selectedFrame.tier === 1) {
     if (context.processorIndex === 1 && (context.memoryIndex > 1 || context.ioIndex > 1)) {
-      warnings.push('Enterprise Processor Complex works with Z Frame only when memory and I/O are not too high.');
+      warnings.push('Enterprise Processor Complex работи само със Z Frame, когато memory и I/O не са твърде високи.');
     }
 
     if (context.externalDASDIndex !== undefined && context.externalDASDIndex > 0) {
-      warnings.push('Flash Enterprise Storage and 2 PB DASD require a larger frame than Z Frame.');
+      warnings.push('Flash Enterprise Storage и 2 PB DASD изискват по-голям frame от Z Frame.');
     }
 
     if (context.tapeSelected || context.cyberSelected) {
-      warnings.push('Tape Library and Cyber Vault are not supported by Z Frame.');
+      warnings.push('Tape Library и Cyber Vault не се поддържат само със Z Frame.');
     }
   }
 
   if ((context.totals?.lpars ?? 0) >= 180 && context.managementIndex < 2) {
-    warnings.push('High LPAR capacity requires Advanced Monitoring & Control.');
+    warnings.push('Високият LPAR капацитет изисква Advanced Monitoring & Control.');
   }
 
   return {
@@ -305,7 +305,7 @@ function buildMetrics(selectedFrame, recommendedFrame, context, isValid) {
   const availabilityBase = 99.4 + redundancyScore * 0.0048 + selectedFrame.tier * 0.035;
 
   return {
-    configurationValidity: isValid ? 'Valid' : 'Invalid',
+    configurationValidity: isValid ? 'Валидна' : 'Невалидна',
     coolingEfficiency,
     cpcCapacityScore: clampScore(cpcCapacityScore),
     disasterRecoveryTier: getDisasterRecoveryTier(context),

@@ -1,9 +1,9 @@
 export const blenderAssets = [];
 
 /*
-  Add exported Blender models here after placing .glb files in frontend/public/models.
+  Добавете експортирани Blender модели тук, след като поставите .glb файловете във frontend/public/models.
 
-  Example:
+  Пример:
   export const blenderAssets = [
     {
       id: 'custom-mainframe-door',

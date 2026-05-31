@@ -15,8 +15,8 @@ async function fetchJson(path, options = {}) {
   if (!response.ok) {
     const isMissingAuthRoute = response.status === 404 && path.startsWith('/api/auth/');
     const message = isMissingAuthRoute
-      ? 'Auth API не е намерено. Рестартирай backend сървъра, за да зареди новите routes.'
-      : payload?.error ?? `Request failed with ${response.status}`;
+      ? 'Auth API не е намерен. Рестартирай backend сървъра, за да зареди новите маршрути.'
+      : payload?.error ?? `Заявката се провали със статус ${response.status}`;
     const error = new Error(message);
     error.status = response.status;
     error.details = payload?.details ?? [];

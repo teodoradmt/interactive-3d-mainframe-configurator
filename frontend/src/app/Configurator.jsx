@@ -515,7 +515,7 @@ export function Configurator() {
       <section className="stage">
         <div className="titlebar">
           <div className="titlebar-heading">
-            <h1>Interactive 3D Mainframe Configurator</h1>
+            <h1>Интерактивен 3D mainframe конфигуратор</h1>
           </div>
           <div className="title-actions">
             <MainframeBackgroundPanel
