@@ -3,11 +3,11 @@ export const modules = [
     id: 'processor',
     category: 'cpc',
     required: true,
-    title: 'CPC / процесорен комплекс',
+    title: 'CPC / Processor Complex',
     short: 'CPC drawer',
     options: [
       {
-        name: 'Базов Processor Complex',
+        name: 'Entry Processor Complex',
         spec: 'Базов CPC drawer за умерена консолидация и Linux работни натоварвания',
         price: 420000,
         cpu: 85000,
@@ -45,7 +45,7 @@ export const modules = [
     id: 'memory',
     category: 'cpc',
     required: true,
-    title: 'Memory и виртуализация',
+    title: 'Memory & Virtualization',
     short: 'Memory / LPAR',
     options: [
       {
@@ -81,11 +81,11 @@ export const modules = [
     id: 'storage',
     category: 'cpc',
     required: true,
-    title: 'I/O connectivity модули',
+    title: 'I/O Connectivity Drawers',
     short: 'I/O модули',
     options: [
       {
-        name: 'Базова OSA мрежа',
+        name: 'Basic OSA Network',
         spec: 'Базова OSA свързаност без отделен external DASD fabric',
         price: 130000,
         io: 40,
@@ -117,11 +117,11 @@ export const modules = [
     id: 'network',
     category: 'cpc',
     required: true,
-    title: 'Management и контрол',
+    title: 'Management & Control',
     short: 'Management / SE',
     options: [
       {
-        name: 'Базово Management',
+        name: 'Basic Management',
         spec: 'Базов HMC и управление на support element',
         price: 85000,
         management: 35,
@@ -130,7 +130,7 @@ export const modules = [
         watts: 0.4,
       },
       {
-        name: 'Резервирани Support Elements',
+        name: 'Redundant Support Elements',
         spec: 'Резервиран SE/HMC control path за продукционни операции',
         price: 190000,
         management: 65,
@@ -139,7 +139,7 @@ export const modules = [
         watts: 0.9,
       },
       {
-        name: 'Разширен Monitoring & Control',
+        name: 'Advanced Monitoring & Control',
         spec: 'Разширен monitoring, control hubs и operational telemetry',
         price: 360000,
         management: 92,
@@ -153,11 +153,11 @@ export const modules = [
     id: 'security',
     category: 'cpc',
     required: true,
-    title: 'Crypto и сигурност',
+    title: 'Crypto & Security',
     short: 'Crypto / сигурност',
     options: [
       {
-        name: 'Стандартен Secure Boot',
+        name: 'Standard Secure Boot',
         spec: 'Secure boot и базова защита на платформата',
         price: 70000,
         security: 1,
@@ -187,11 +187,11 @@ export const modules = [
     id: 'power',
     category: 'cpc',
     required: true,
-    title: 'Power инфраструктура',
+    title: 'Power Infrastructure',
     short: 'Power',
     options: [
       {
-        name: 'Стандартно резервирано захранване',
+        name: 'Standard Redundant Power',
         spec: 'Стандартни резервирани power feeds за работа на CPC frame',
         price: 90000,
         uptimeScore: 45,
@@ -220,7 +220,7 @@ export const modules = [
     id: 'cooling',
     category: 'cpc',
     required: true,
-    title: 'Cooling инфраструктура',
+    title: 'Cooling Infrastructure',
     short: 'Cooling',
     options: [
       {
@@ -259,7 +259,7 @@ export const modules = [
     id: 'externalDASD',
     category: 'external',
     required: false,
-    title: 'External DASD storage',
+    title: 'External DASD Storage',
     short: 'DASD',
     externalObject: 'dasd',
     options: [
@@ -295,7 +295,7 @@ export const modules = [
     externalObject: 'tape',
     options: [
       {
-        name: 'Базова Tape Library',
+        name: 'Entry Tape Library',
         spec: 'External tape backup за малки retention набори',
         price: 120000,
         backupCapacity: 250,
