@@ -1,4 +1,3 @@
-import { AlertTriangle, Server } from 'lucide-react';
 import { currency, number } from '../utils/formatters.js';
 
 export function SummaryPanel({
@@ -40,23 +39,6 @@ export function SummaryPanel({
           <Metric label="Production готовност" value={frameMetrics.productionReadiness ?? 'Ниска'} />
           <Metric label="Препоръчан frame" value={frameMetrics.recommendedFrameName ?? frameEvaluation?.recommendedFrame?.name ?? 'Z Frame'} />
           <Metric label="Валидност на конфигурацията" value={frameMetrics.configurationValidity ?? 'Валидна'} />
-
-          {(frameEvaluation?.warnings?.length > 0 || frameEvaluation?.info?.length > 0) && (
-            <div className="evaluation-messages">
-              {frameEvaluation.warnings.map((message) => (
-                <p className="evaluation-message warning" key={message}>
-                  <AlertTriangle size={15} />
-                  {message}
-                </p>
-              ))}
-              {frameEvaluation.info.map((message) => (
-                <p className="evaluation-message info" key={message}>
-                  <Server size={15} />
-                  {message}
-                </p>
-              ))}
-            </div>
-          )}
 
         </>
       )}

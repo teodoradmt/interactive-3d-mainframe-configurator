@@ -70,6 +70,7 @@ function getSelectedExternalModules(modules, selection) {
 }
 
 function getRecommendedFrameTier({
+  coolingIndex,
   cyberSelected,
   externalCount,
   ioIndex,
@@ -80,7 +81,16 @@ function getRecommendedFrameTier({
 }) {
   let tier = 1;
 
-  if (processorIndex === 2 || memoryIndex === 2 || ioIndex === 2 || powerIndex === 2 || externalCount > 0 || tapeSelected || cyberSelected) {
+  if (
+    processorIndex === 2
+    || memoryIndex === 2
+    || ioIndex === 2
+    || coolingIndex === 2
+    || powerIndex === 2
+    || externalCount > 0
+    || tapeSelected
+    || cyberSelected
+  ) {
     tier = 2;
   }
 
@@ -172,103 +182,63 @@ function buildContext({ modules, selection, totals }) {
   };
 }
 
-function validateFrame(selectedFrame, context) {
-  const warnings = [];
+function validateConfiguration(context) {
+  const configurationWarnings = [];
   const info = [];
 
-  if (context.externalCount === 0) {
+  if (context.externalCount === 0 && context.ioIndex >= 1) {
+    configurationWarnings.push('Избраната FICON/SAN I/O свързаност изисква поне една външна система: External DASD, Tape Library или Cyber Vault.');
+  } else if (context.externalCount === 0) {
     info.push('Не е избран external storage. Тази конфигурация е подходяща само за demo/development сценарии. Production работните натоварвания обикновено изискват external DASD или enterprise storage.');
   }
 
-  if (context.processorIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('AI-Accelerated CPC изисква Z Frame + A Frame.');
-  }
-
   if (context.processorIndex === 2 && context.coolingIndex < 2) {
-    warnings.push('Избраният cooling не е достатъчен за AI-Accelerated CPC. Изберете Liquid-Cooling Ready или надградете frame конфигурацията.');
+    configurationWarnings.push('Избраният cooling не е достатъчен за AI-Accelerated CPC. Изберете Liquid-Cooling Ready.');
   }
 
   if (context.memoryIndex === 2 && context.processorIndex === 0) {
-    warnings.push('12 TB RAIM изисква Enterprise Processor Complex или AI-Accelerated CPC.');
-  }
-
-  if (context.memoryIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('Тази конфигурация изисква по-голям frame, защото избраните CPC и memory надвишават капацитета на Z Frame.');
+    configurationWarnings.push('12 TB RAIM изисква Enterprise Processor Complex или AI-Accelerated CPC.');
   }
 
   if (context.processorIndex === 1 && context.memoryIndex >= 2 && context.coolingIndex === 0) {
-    warnings.push('Enterprise CPC с по-голяма memory трябва да използва Rear Door Heat Exchanger или Liquid-Cooling Ready инфраструктура.');
-  }
-
-  if (context.ioIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('Enterprise I/O Fabric изисква допълнителен PCIe I/O drawer капацитет. Надградете frame конфигурацията.');
-  }
-
-  if (context.coolingIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('Liquid cooling изисква Z Frame + A Frame.');
-  }
-
-  if (context.powerIndex === 2 && selectedFrame.tier < 2) {
-    warnings.push('UPS-backed enterprise power изисква Z Frame + A Frame.');
+    configurationWarnings.push('Enterprise CPC с по-голяма memory трябва да използва Rear Door Heat Exchanger или Liquid-Cooling Ready инфраструктура.');
   }
 
   if (context.externalDASDIndex !== undefined && context.ioIndex < 1) {
-    warnings.push('External DASD изисква FICON / Fibre Channel свързаност или по-високо ниво.');
+    configurationWarnings.push('External DASD изисква FICON / Fibre Channel свързаност или по-високо ниво.');
   }
 
   if (context.externalDASDIndex !== undefined && context.externalDASDIndex >= 1 && context.ioIndex < 2) {
-    warnings.push('External DASD се поддържа, но избраното DASD ниво изисква по-силна I/O свързаност.');
+    configurationWarnings.push('External DASD се поддържа, но избраното DASD ниво изисква по-силна I/O свързаност.');
   }
 
   if (context.tapeSelected && context.ioIndex < 1) {
-    warnings.push('Tape Library изисква FICON свързаност.');
+    configurationWarnings.push('Tape Library изисква FICON свързаност.');
   }
 
   if (context.tapeSelected && context.managementIndex < 2) {
-    warnings.push('Tape Library изисква Advanced Monitoring & Control.');
+    configurationWarnings.push('Tape Library изисква Advanced Monitoring & Control.');
   }
 
   if (context.cyberSelected && context.managementIndex < 2) {
-    warnings.push('Cyber Vault изисква Advanced Monitoring & Control.');
+    configurationWarnings.push('Cyber Vault изисква Advanced Monitoring & Control.');
   }
 
   if (context.cyberSelected && context.securityIndex < 2) {
-    warnings.push('Cyber Vault изисква Quantum-Safe Security Suite.');
+    configurationWarnings.push('Cyber Vault изисква Quantum-Safe Security Suite.');
   }
 
   if (context.cyberSelected && context.ioIndex < 2) {
-    warnings.push('Cyber Vault изисква Enterprise I/O Fabric.');
-  }
-
-  if (context.cyberSelected && selectedFrame.tier < 2) {
-    warnings.push('Cyber Vault изисква по-голяма enterprise frame инфраструктура.');
-  }
-
-  if (context.externalCount > 1 && selectedFrame.tier < 2) {
-    warnings.push('Няколко външни системи изискват Z Frame + A Frame.');
-  }
-
-  if (selectedFrame.tier === 1) {
-    if (context.processorIndex === 1 && (context.memoryIndex > 1 || context.ioIndex > 1)) {
-      warnings.push('Enterprise Processor Complex работи само със Z Frame, когато memory и I/O не са твърде високи.');
-    }
-
-    if (context.externalDASDIndex !== undefined && context.externalDASDIndex > 0) {
-      warnings.push('Flash Enterprise Storage и 2 PB DASD изискват по-голям frame от Z Frame.');
-    }
-
-    if (context.tapeSelected || context.cyberSelected) {
-      warnings.push('Tape Library и Cyber Vault не се поддържат само със Z Frame.');
-    }
+    configurationWarnings.push('Cyber Vault изисква Enterprise I/O Fabric.');
   }
 
   if ((context.totals?.lpars ?? 0) >= 180 && context.managementIndex < 2) {
-    warnings.push('Високият LPAR капацитет изисква Advanced Monitoring & Control.');
+    configurationWarnings.push('Високият LPAR капацитет изисква Advanced Monitoring & Control.');
   }
 
   return {
+    configurationWarnings: [...new Set(configurationWarnings)],
     info,
-    warnings: [...new Set(warnings)],
   };
 }
 
@@ -335,18 +305,30 @@ export function evaluateFrameConfiguration({
   const recommendedFrame = getFrameForTier(recommendedTier);
   const isAuto = selectedFrameId === FRAME_AUTO_ID;
   const selectedFrame = isAuto ? recommendedFrame : getFrameConfiguration(selectedFrameId);
-  const validation = validateFrame(selectedFrame, context);
-  const isValid = validation.warnings.length === 0;
+  const validation = validateConfiguration(context);
+  const shouldOfferAutoFrameSwitch = !isAuto && selectedFrame.tier < recommendedFrame.tier;
+  const frameWarnings = shouldOfferAutoFrameSwitch
+    ? [
+        `Frame е избран ръчно като ${selectedFrame.name}, но тази конфигурация изисква ${recommendedFrame.name}. Сменете frame на Авто или изберете препоръчания frame.`,
+      ]
+    : [];
+  const warnings = [...new Set([...frameWarnings, ...validation.configurationWarnings])];
+  const isFrameValid = frameWarnings.length === 0;
+  const isValid = warnings.length === 0;
 
   return {
+    configurationWarnings: validation.configurationWarnings,
     effectiveFrame: selectedFrame,
+    frameWarnings,
     info: validation.info,
     isAuto,
+    isFrameValid,
     isRecommendedApplied: selectedFrame.id === recommendedFrame.id,
     isValid,
     metrics: buildMetrics(selectedFrame, recommendedFrame, context, isValid),
     recommendedFrame,
     selectedFrameMode: selectedFrameId,
-    warnings: validation.warnings,
+    shouldOfferAutoFrameSwitch,
+    warnings: [...new Set(warnings)],
   };
 }

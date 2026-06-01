@@ -33,6 +33,8 @@ export function FrameConfigurationPanel({
   const selectedOption = getFrameSelectionOption(selectedFrameId);
   const effectiveFrame = frameEvaluation.effectiveFrame;
   const isAutoSelected = selectedFrameId === FRAME_AUTO_ID;
+  const isInvalid = !frameEvaluation.isFrameValid;
+  const shouldOfferAutoFrameSwitch = frameEvaluation.shouldOfferAutoFrameSwitch && !isAutoSelected;
   const triggerValue = isAutoSelected ? 'Авто' : effectiveFrame.shortName;
 
   useEffect(() => {
@@ -60,8 +62,8 @@ export function FrameConfigurationPanel({
   return (
     <>
       <button
-        aria-label={`Frame: ${selectedOption.name}`}
-        className="design-trigger frame-trigger"
+        aria-label={`Frame: ${selectedOption.name}${isInvalid ? ', невалидна конфигурация' : ''}`}
+        className={`design-trigger frame-trigger ${isInvalid ? 'invalid' : ''}`}
         onClick={() => setIsOpen(true)}
         type="button"
       >
@@ -70,6 +72,12 @@ export function FrameConfigurationPanel({
         <span className="frame-trigger-value">
           {triggerValue}
         </span>
+        {isInvalid && (
+          <span className="frame-trigger-warning">
+            <AlertTriangle size={14} />
+            Невалиден
+          </span>
+        )}
       </button>
 
       {isOpen && createPortal(
@@ -95,17 +103,21 @@ export function FrameConfigurationPanel({
               <div>
                 <span>Препоръчан frame</span>
                 <strong>{frameEvaluation.recommendedFrame.name}</strong>
-                {!frameEvaluation.isRecommendedApplied && (
+                {shouldOfferAutoFrameSwitch ? (
+                  <button className="frame-apply-button" onClick={() => onSelectFrame(FRAME_AUTO_ID)} type="button">
+                    Смени на Авто
+                  </button>
+                ) : !frameEvaluation.isRecommendedApplied && (
                   <button className="frame-apply-button" onClick={onApplyRecommendedFrame} type="button">
                     Приложи препоръчания frame
                   </button>
                 )}
               </div>
-              <div className={frameEvaluation.isValid ? 'valid' : 'invalid'}>
-                <span>Конфигурация</span>
+              <div className={frameEvaluation.isFrameValid ? 'valid' : 'invalid'}>
+                <span>Frame статус</span>
                 <strong>
-                  {frameEvaluation.isValid ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                  {frameEvaluation.isValid ? 'Валидна' : 'Невалидна'}
+                  {frameEvaluation.isFrameValid ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  {frameEvaluation.isFrameValid ? 'Валиден' : 'Невалиден'}
                 </strong>
               </div>
             </div>
@@ -136,22 +148,6 @@ export function FrameConfigurationPanel({
               })}
             </div>
 
-            {(frameEvaluation.warnings.length > 0 || frameEvaluation.info.length > 0) && (
-              <div className="frame-messages">
-                {frameEvaluation.warnings.map((message) => (
-                  <p className="frame-message warning" key={message}>
-                    <AlertTriangle size={15} />
-                    {message}
-                  </p>
-                ))}
-                {frameEvaluation.info.map((message) => (
-                  <p className="frame-message info" key={message}>
-                    <Server size={15} />
-                    {message}
-                  </p>
-                ))}
-              </div>
-            )}
           </section>
         </div>,
         document.body,

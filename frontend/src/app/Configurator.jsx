@@ -12,7 +12,6 @@ import { SaveConfigurationPage } from '../components/SaveConfigurationPage.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
 import { getMainframeDesign, mainframeDesigns } from '../config/mainframeDesigns.js';
 import {
-  DEFAULT_FRAME_ID,
   FRAME_AUTO_ID,
   evaluateFrameConfiguration,
   getFrameConfiguration,
@@ -47,17 +46,6 @@ const defaultSceneBackground = {
   imageName: '',
 };
 const authTokenStorageKey = 'mainframe-auth-token';
-const zPlusAFrameId = 'z-plus-a';
-const moduleOptionsRequiringAFrame = {
-  cooling: new Set([2]),
-  cyberVault: new Set([0, 1, 2]),
-  externalDASD: new Set([0, 1, 2]),
-  memory: new Set([2]),
-  power: new Set([2]),
-  processor: new Set([2]),
-  storage: new Set([2]),
-  tapeBackup: new Set([0, 1, 2]),
-};
 const duplicateConfigurationNameMessage = 'Такава конфигурация вече съществува. Сменете името!';
 
 function normalizeConfigurationName(value) {
@@ -92,14 +80,6 @@ function getSourceSelectionValue(sourceSelection, module) {
   }
 
   return sourceSelection[module.id];
-}
-
-function selectionRequiresAFrame(selection) {
-  return Object.entries(moduleOptionsRequiringAFrame).some(([moduleId, requiredOptions]) => {
-    const optionIndex = Number(selection[moduleId]);
-
-    return Number.isInteger(optionIndex) && requiredOptions.has(optionIndex);
-  });
 }
 
 export function Configurator() {
@@ -217,6 +197,18 @@ export function Configurator() {
     }),
     [modules, selectedFrameId, selection, totals],
   );
+  const rightMessages = useMemo(() => [
+    ...frameEvaluation.warnings.map((message) => ({
+      message,
+      type: 'warning',
+    })),
+    ...(isConfigurationComplete
+      ? frameEvaluation.info.map((message) => ({
+          message,
+          type: 'info',
+        }))
+      : []),
+  ], [frameEvaluation.info, frameEvaluation.warnings, isConfigurationComplete]);
 
   useEffect(() => {
     if (!modules.length || !isConfigurationComplete) {
@@ -249,12 +241,6 @@ export function Configurator() {
       controller.abort();
     };
   }, [isConfigurationComplete, modules.length, selection]);
-
-  useEffect(() => {
-    if (selectionRequiresAFrame(selection) && selectedFrameId === DEFAULT_FRAME_ID) {
-      setSelectedFrameId(zPlusAFrameId);
-    }
-  }, [selectedFrameId, selection]);
 
   const clearSceneBackgroundImage = () => {
     if (backgroundImageUrlRef.current) {
@@ -382,6 +368,11 @@ export function Configurator() {
   const openSaveConfiguration = () => {
     if (!isConfigurationComplete) {
       setError('Завърши всички модули преди запазване на конфигурация.');
+      return;
+    }
+
+    if (!frameEvaluation.isValid) {
+      setError('Конфигурацията има невалидна инфраструктура. Провери frame-а и външните системи в оценката.');
       return;
     }
 
@@ -563,6 +554,22 @@ export function Configurator() {
       </section>
 
       <aside className="right-column">
+        {rightMessages.length > 0 && (
+          <section className="right-messages" aria-live="polite">
+            {rightMessages.map((item) => (
+              <p className={`right-message ${item.type}`} key={`${item.type}-${item.message}`}>
+                <strong>{item.type === 'warning' ? 'Съобщение' : 'Информация'}</strong>
+                <span>{item.message}</span>
+              </p>
+            ))}
+            {frameEvaluation.shouldOfferAutoFrameSwitch && (
+              <button className="right-message-action" onClick={() => setSelectedFrameId(FRAME_AUTO_ID)} type="button">
+                Смени frame на Авто
+              </button>
+            )}
+          </section>
+        )}
+
         <div className="panel external-systems-panel">
           <ModuleConfigurationPanel
             activeModule={activeModule}
