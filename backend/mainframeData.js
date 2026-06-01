@@ -46,7 +46,7 @@ export const modules = [
     category: 'cpc',
     required: true,
     title: 'Memory & Virtualization',
-    short: 'Memory / LPAR',
+    short: 'Memory/LPAR',
     options: [
       {
         name: '1 TB RAIM Memory',
@@ -82,7 +82,7 @@ export const modules = [
     category: 'cpc',
     required: true,
     title: 'I/O Connectivity Drawers',
-    short: 'I/O модули',
+    short: 'I/O Connectivity Drawers',
     options: [
       {
         name: 'Basic OSA Network',
@@ -154,7 +154,7 @@ export const modules = [
     category: 'cpc',
     required: true,
     title: 'Crypto & Security',
-    short: 'Crypto / сигурност',
+    short: 'Crypto & Security',
     options: [
       {
         name: 'Standard Secure Boot',

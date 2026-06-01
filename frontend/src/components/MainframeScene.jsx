@@ -87,12 +87,13 @@ function isSelected(selection, moduleId, minimumIndex = 0) {
   return selectedIndex !== undefined && selectedIndex >= minimumIndex;
 }
 
-function buildAFrameModules(selection, selectedExternalModules) {
+function buildAFrameModules(selection, selectedExternalModules, sourceModules) {
   const hasExternalSystems = selectedExternalModules.length > 0;
   const hasCyberVault = isSelected(selection, 'cyberVault');
   const hasTapeLibrary = isSelected(selection, 'tapeBackup');
   const hasEnterpriseIo = isSelected(selection, 'storage', 2);
   const hasHighEndCpc = isSelected(selection, 'processor', 2) || isSelected(selection, 'memory', 2);
+  const sourceModulesById = new Map(sourceModules.map((module) => [module.id, module]));
 
   const activeByModuleId = {
     'a-frame-pcie-io': hasEnterpriseIo || hasExternalSystems,
@@ -105,6 +106,7 @@ function buildAFrameModules(selection, selectedExternalModules) {
   return A_FRAME_MODULE_DEFINITIONS.map((module) => ({
     ...module,
     isConfigured: Boolean(activeByModuleId[module.id]),
+    selectedOptionName: sourceModulesById.get(module.sourceModuleId)?.options?.[getSelectedIndex(selection, module.sourceModuleId)]?.name,
   }));
 }
 
@@ -234,6 +236,8 @@ function ModuleTray({
   const stripGlow = isModuleCovered ? 0.03 : isConfigured ? 0.62 : 0.15;
   const indicatorGlow = isModuleCovered ? 0.03 : isConfigured ? 0.72 : 0.08;
   const canRenderLabel = !isDoorClosed && !isModuleCovered && canShowLabel;
+  const selectedOptionName = module.selectedOptionName ?? module.options?.[selectedIndex]?.name;
+  const label = isConfigured && selectedOptionName ? selectedOptionName : module.short;
 
   useEffect(() => {
     const previousSelectedIndex = previousSelectedIndexRef.current;
@@ -376,8 +380,8 @@ function ModuleTray({
       </mesh>
 
       {canRenderLabel && (
-        <Html center distanceFactor={8} position={[0, 0.005, 0.18]} className="module-label">
-          {module.short}
+        <Html center distanceFactor={8} position={[0, 0.005, 0.18]} className="module-label module-option-label">
+          {label}
         </Html>
       )}
     </group>
@@ -833,8 +837,8 @@ export function MainframeScene({
   const cpcPosition = framePositions[0];
   const expansionFramePositions = framePositions.slice(1);
   const aFrameModules = useMemo(
-    () => buildAFrameModules(selection, selectedExternalModules),
-    [selection, selectedExternalModules],
+    () => buildAFrameModules(selection, selectedExternalModules, modules),
+    [modules, selection, selectedExternalModules],
   );
   const externalSystems = useMemo(() => {
     const connectionSource = framePositions[framePositions.length - 1] ?? [0, -0.1, 0];

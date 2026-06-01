@@ -167,6 +167,10 @@ h1 {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
 }
 
+.module-option-label {
+  max-width: 180px;
+}
+
 .module-label.external-label,
 .module-label.external-option-label {
   max-width: 170px;
