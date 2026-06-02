@@ -23,8 +23,8 @@ export const frameConfigurations = [
 export const frameSelectionOptions = [
   {
     id: FRAME_AUTO_ID,
-    name: 'Авто',
-    shortName: 'Авто',
+    name: 'Auto',
+    shortName: 'Auto',
     frameCount: 1,
     description: 'Автоматично избира Z Frame или Z Frame + A Frame според избраните модули.',
   },
@@ -67,6 +67,96 @@ function hasSelection(selection, moduleId) {
 
 function getSelectedExternalModules(modules, selection) {
   return modules.filter((module) => isExternalModule(module) && hasSelection(selection, module.id));
+}
+
+function getClampedOptionIndex(modules, moduleId, optionIndex) {
+  const module = getModule(modules, moduleId);
+
+  if (!module) {
+    return undefined;
+  }
+
+  return Math.min(Math.max(Number(optionIndex) || 0, 0), module.options.length - 1);
+}
+
+function setMinimumOption(modules, selection, moduleId, minimumIndex) {
+  const optionIndex = getClampedOptionIndex(
+    modules,
+    moduleId,
+    Math.max(getSelectedIndex(selection, moduleId) ?? 0, minimumIndex),
+  );
+
+  if (optionIndex !== undefined) {
+    selection[moduleId] = optionIndex;
+  }
+}
+
+function calculateSelectionMetric(modules, selection, metric) {
+  return modules.reduce((sum, module) => {
+    const optionIndex = getSelectedIndex(selection, module.id);
+    const option = optionIndex === undefined ? null : module.options[optionIndex];
+
+    return sum + (option?.[metric] ?? 0);
+  }, 0);
+}
+
+export function completeInfrastructureSelection(modules, selection = {}) {
+  const completedSelection = {};
+
+  modules.forEach((module) => {
+    const optionIndex = getClampedOptionIndex(modules, module.id, selection[module.id]);
+
+    if (optionIndex !== undefined && selection[module.id] !== undefined) {
+      completedSelection[module.id] = optionIndex;
+    }
+  });
+
+  if (getSelectedIndex(completedSelection, 'processor') === 2) {
+    setMinimumOption(modules, completedSelection, 'cooling', 2);
+  }
+
+  if (getSelectedIndex(completedSelection, 'memory') === 2 && (getSelectedIndex(completedSelection, 'processor') ?? 0) === 0) {
+    setMinimumOption(modules, completedSelection, 'processor', 1);
+  }
+
+  if (
+    getSelectedIndex(completedSelection, 'processor') === 1
+    && (getSelectedIndex(completedSelection, 'memory') ?? 0) >= 2
+    && (getSelectedIndex(completedSelection, 'cooling') ?? 0) === 0
+  ) {
+    setMinimumOption(modules, completedSelection, 'cooling', 1);
+  }
+
+  if ((getSelectedIndex(completedSelection, 'storage') ?? 0) >= 1 && getSelectedExternalModules(modules, completedSelection).length === 0) {
+    setMinimumOption(modules, completedSelection, 'externalDASD', 0);
+  }
+
+  const externalDASDIndex = getSelectedIndex(completedSelection, 'externalDASD');
+
+  if (externalDASDIndex !== undefined) {
+    setMinimumOption(modules, completedSelection, 'storage', externalDASDIndex >= 1 ? 2 : 1);
+  }
+
+  if (hasSelection(completedSelection, 'tapeBackup')) {
+    setMinimumOption(modules, completedSelection, 'storage', 1);
+    setMinimumOption(modules, completedSelection, 'network', 2);
+  }
+
+  if (hasSelection(completedSelection, 'cyberVault')) {
+    if (!hasSelection(completedSelection, 'externalDASD') && !hasSelection(completedSelection, 'tapeBackup')) {
+      setMinimumOption(modules, completedSelection, 'externalDASD', 0);
+    }
+
+    setMinimumOption(modules, completedSelection, 'storage', 2);
+    setMinimumOption(modules, completedSelection, 'network', 2);
+    setMinimumOption(modules, completedSelection, 'security', 2);
+  }
+
+  if (calculateSelectionMetric(modules, completedSelection, 'lpars') >= 180) {
+    setMinimumOption(modules, completedSelection, 'network', 2);
+  }
+
+  return completedSelection;
 }
 
 function getRecommendedFrameTier({
@@ -222,6 +312,10 @@ function validateConfiguration(context) {
 
   if (context.cyberSelected && context.managementIndex < 2) {
     configurationWarnings.push('Cyber Vault изисква Advanced Monitoring & Control.');
+  }
+
+  if (context.cyberSelected && context.externalDASDIndex === undefined && !context.tapeSelected) {
+    configurationWarnings.push('Cyber Vault изисква External DASD или Tape Library.');
   }
 
   if (context.cyberSelected && context.securityIndex < 2) {

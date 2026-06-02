@@ -694,6 +694,56 @@ function getFramePositions(frameCount, hasExternalSystems) {
   return [hasExternalSystems ? [-1.36, -0.1, 0] : [0, -0.1, 0]];
 }
 
+function getContactShadowLayout(framePositions, externalSystems) {
+  const bounds = {
+    maxX: Number.NEGATIVE_INFINITY,
+    maxZ: Number.NEGATIVE_INFINITY,
+    minX: Number.POSITIVE_INFINITY,
+    minZ: Number.POSITIVE_INFINITY,
+  };
+
+  const includeFootprint = ([x, , z], halfX, halfZ) => {
+    bounds.minX = Math.min(bounds.minX, x - halfX);
+    bounds.maxX = Math.max(bounds.maxX, x + halfX);
+    bounds.minZ = Math.min(bounds.minZ, z - halfZ);
+    bounds.maxZ = Math.max(bounds.maxZ, z + halfZ);
+  };
+
+  framePositions.forEach((position) => {
+    includeFootprint(position, 3.55, 3.25);
+  });
+
+  externalSystems.forEach((system) => {
+    includeFootprint(system.position, 1.95, 1.85);
+  });
+
+  if (!Number.isFinite(bounds.minX)) {
+    return {
+      blur: 2.8,
+      opacity: 0.52,
+      position: [1.2, -2.55, -0.35],
+      scale: [15.5, 12.5],
+    };
+  }
+
+  const sceneWidth = bounds.maxX - bounds.minX;
+  const sceneDepth = bounds.maxZ - bounds.minZ;
+
+  return {
+    blur: framePositions.length > 1 ? 3.3 : 2.8,
+    opacity: externalSystems.length > 0 ? 0.46 : 0.52,
+    position: [
+      (bounds.minX + bounds.maxX) / 2 + 0.35,
+      -2.55,
+      (bounds.minZ + bounds.maxZ) / 2 - 0.18,
+    ],
+    scale: [
+      Math.max(15.5, sceneWidth + 5.2),
+      Math.max(12.5, sceneDepth + 5.2),
+    ],
+  };
+}
+
 function ProceduralMainframe({
   activeModule,
   animateDoorOnMount = false,
@@ -863,13 +913,38 @@ export function MainframeScene({
       };
     });
   }, [framePositions, selectedExternalModules]);
+  const contactShadowLayout = useMemo(
+    () => getContactShadowLayout(framePositions, externalSystems),
+    [externalSystems, framePositions],
+  );
 
   return (
     <div className="canvas-wrap" style={canvasBackgroundStyle}>
       <Canvas camera={{ position: [6.8, 3.7, 10.6], fov: 45 }} gl={{ alpha: true }} shadows style={{ background: 'transparent' }}>
         <ambientLight intensity={0.58} />
-        <directionalLight position={[4, 6, 4]} intensity={1.8} castShadow />
-        <spotLight position={[-3.8, 4.6, 3.2]} angle={0.42} penumbra={0.45} intensity={2.25} castShadow />
+        <directionalLight
+          position={[4, 6, 4]}
+          intensity={1.8}
+          castShadow
+          shadow-bias={-0.00018}
+          shadow-camera-bottom={-8.5}
+          shadow-camera-far={18}
+          shadow-camera-left={-10}
+          shadow-camera-right={10}
+          shadow-camera-top={8.5}
+          shadow-mapSize={[2048, 2048]}
+          shadow-normalBias={0.02}
+        />
+        <spotLight
+          position={[-3.8, 4.6, 3.2]}
+          angle={0.42}
+          penumbra={0.45}
+          intensity={2.25}
+          castShadow
+          shadow-bias={-0.00015}
+          shadow-mapSize={[1536, 1536]}
+          shadow-normalBias={0.018}
+        />
 
         <Suspense fallback={null}>
           <ProceduralMainframe
@@ -915,7 +990,14 @@ export function MainframeScene({
             />
           ))}
           <BlenderAssetSlots />
-          <ContactShadows position={[1.2, -2.55, -0.35]} opacity={0.52} scale={15.5} blur={2.8} />
+          <ContactShadows
+            position={contactShadowLayout.position}
+            opacity={contactShadowLayout.opacity}
+            scale={contactShadowLayout.scale}
+            blur={contactShadowLayout.blur}
+            far={9.5}
+            resolution={768}
+          />
           <Environment preset="warehouse" />
         </Suspense>
 

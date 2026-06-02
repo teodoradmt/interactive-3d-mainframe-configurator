@@ -111,6 +111,10 @@ function extractWorkload(text) {
     return 'low';
   }
 
+  if (/cyber|vault|disaster|recovery|ficon|san|кибер|възстанов/.test(normalized)) {
+    return 'high';
+  }
+
   return null;
 }
 
@@ -274,6 +278,278 @@ function normalizeSelection(modules, selection = {}) {
   }, {});
 }
 
+function findModuleById(modules, moduleId) {
+  return modules.find((module) => module.id === moduleId) ?? null;
+}
+
+function clampModuleOption(modules, moduleId, optionIndex) {
+  const module = findModuleById(modules, moduleId);
+
+  if (!module) {
+    return null;
+  }
+
+  return Math.min(Math.max(Number(optionIndex) || 0, 0), module.options.length - 1);
+}
+
+function setMinimumOption(modules, selection, moduleId, minimumIndex) {
+  const optionIndex = clampModuleOption(
+    modules,
+    moduleId,
+    Math.max(getOptionIndex(selection, moduleId), minimumIndex),
+  );
+
+  if (optionIndex !== null) {
+    selection[moduleId] = optionIndex;
+  }
+}
+
+function hasAnyExternalSystem(selection) {
+  return ['externalDASD', 'tapeBackup', 'cyberVault'].some((moduleId) => selection[moduleId] !== undefined);
+}
+
+function getInfrastructureIntent(text) {
+  const normalized = String(text).toLowerCase();
+  const noDASDRequest = /без\s+(dasd|диск|storage)|no\s+dasd|without\s+dasd/i.test(normalized);
+  const noTapeRequest = /без\s+(tape|тейп|лента|tape library)|no\s+tape|without\s+tape/i.test(normalized);
+  const noCyberRequest = /без\s+(cyber|cyber vault|vault)|no\s+(cyber|vault)|without\s+(cyber|vault)/i.test(normalized);
+  const noExternal =
+    /без\s+(външн|external|optional)\s+(систем|system|device|cabinet)|без\s+external\s+systems|no\s+external\s+(systems|devices|cabinets)|without\s+external\s+(systems|devices|cabinets)/i.test(normalized)
+    || (noDASDRequest && noTapeRequest && noCyberRequest);
+  const noDASD = noExternal || noDASDRequest;
+  const noTape = noExternal || noTapeRequest;
+  const noCyber = noExternal || noCyberRequest;
+
+  return {
+    cyber: /vault|disaster|recovery|dr|cyber|кибер|възстанов/i.test(normalized),
+    noCyber,
+    noDASD,
+    noExternal,
+    noTape,
+    storage: /storage|dasd|disk|data|ds8900|ficon|san|данни|съхран|архив|pb/i.test(normalized),
+    tape: /backup|tape|archive|бекъп|архив|резерв/i.test(normalized),
+  };
+}
+
+function ensureExternalSystem(modules, selection, intent) {
+  if (hasAnyExternalSystem(selection)) {
+    return;
+  }
+
+  if (intent.noExternal) {
+    return;
+  }
+
+  if (intent.cyber && !intent.noCyber && findModuleById(modules, 'cyberVault')) {
+    selection.cyberVault = 0;
+    return;
+  }
+
+  if (intent.tape && !intent.noTape && findModuleById(modules, 'tapeBackup')) {
+    selection.tapeBackup = 0;
+    return;
+  }
+
+  if (!intent.noDASD && findModuleById(modules, 'externalDASD')) {
+    selection.externalDASD = 0;
+  } else if (!intent.noTape && findModuleById(modules, 'tapeBackup')) {
+    selection.tapeBackup = 0;
+  } else if (!intent.noCyber && findModuleById(modules, 'cyberVault')) {
+    selection.cyberVault = 0;
+  }
+}
+
+function applyExternalExclusions(selection, intent) {
+  if (intent.noExternal || intent.noDASD) {
+    delete selection.externalDASD;
+  }
+
+  if (intent.noExternal || intent.noTape) {
+    delete selection.tapeBackup;
+  }
+
+  if (intent.noExternal || intent.noCyber) {
+    delete selection.cyberVault;
+  }
+
+  if (intent.noExternal) {
+    selection.storage = 0;
+  }
+}
+
+function ensureCyberBackingSystem(modules, selection, intent) {
+  if (selection.cyberVault === undefined || selection.externalDASD !== undefined || selection.tapeBackup !== undefined) {
+    return;
+  }
+
+  if (!intent.noDASD && findModuleById(modules, 'externalDASD')) {
+    selection.externalDASD = 0;
+    return;
+  }
+
+  if (!intent.noTape && findModuleById(modules, 'tapeBackup')) {
+    selection.tapeBackup = 0;
+    return;
+  }
+
+  delete selection.cyberVault;
+}
+
+function calculateSelectionMetric(modules, selection, metric) {
+  return modules.reduce((sum, module) => sum + (getSelectedOption(module, selection)?.[metric] ?? 0), 0);
+}
+
+function applyInfrastructureDependencies(modules, selection) {
+  const externalDASDIndex = getOptionIndex(selection, 'externalDASD', -1);
+
+  if (externalDASDIndex >= 0) {
+    setMinimumOption(modules, selection, 'storage', externalDASDIndex >= 1 ? 2 : 1);
+  }
+
+  if (getOptionIndex(selection, 'tapeBackup', -1) >= 0) {
+    setMinimumOption(modules, selection, 'storage', 1);
+    setMinimumOption(modules, selection, 'network', 2);
+  }
+
+  if (getOptionIndex(selection, 'cyberVault', -1) >= 0) {
+    setMinimumOption(modules, selection, 'storage', 2);
+    setMinimumOption(modules, selection, 'network', 2);
+    setMinimumOption(modules, selection, 'security', 2);
+  }
+
+  if (calculateSelectionMetric(modules, selection, 'lpars') >= 180) {
+    setMinimumOption(modules, selection, 'network', 2);
+  }
+}
+
+export function completeInfrastructureSelection(modules, selection = {}, text = '') {
+  const completedSelection = normalizeSelection(modules, selection);
+  const intent = getInfrastructureIntent(text);
+
+  applyExternalExclusions(completedSelection, intent);
+
+  if (intent.cyber && !intent.noCyber && !intent.noExternal) {
+    setMinimumOption(modules, completedSelection, 'cyberVault', 0);
+  } else if (intent.tape && !intent.noTape && !intent.noExternal) {
+    setMinimumOption(modules, completedSelection, 'tapeBackup', 0);
+  } else if (intent.storage && !intent.noDASD && !intent.noExternal) {
+    setMinimumOption(modules, completedSelection, 'externalDASD', 0);
+  }
+
+  if (getOptionIndex(completedSelection, 'processor') === 2) {
+    setMinimumOption(modules, completedSelection, 'cooling', 2);
+  }
+
+  if (getOptionIndex(completedSelection, 'memory') === 2 && getOptionIndex(completedSelection, 'processor') === 0) {
+    setMinimumOption(modules, completedSelection, 'processor', 1);
+  }
+
+  if (
+    getOptionIndex(completedSelection, 'processor') === 1
+    && getOptionIndex(completedSelection, 'memory') >= 2
+    && getOptionIndex(completedSelection, 'cooling') === 0
+  ) {
+    setMinimumOption(modules, completedSelection, 'cooling', 1);
+  }
+
+  if (getOptionIndex(completedSelection, 'storage') >= 1) {
+    ensureExternalSystem(modules, completedSelection, intent);
+  }
+
+  ensureCyberBackingSystem(modules, completedSelection, intent);
+  applyInfrastructureDependencies(modules, completedSelection);
+
+  applyExternalExclusions(completedSelection, intent);
+  ensureCyberBackingSystem(modules, completedSelection, intent);
+  applyInfrastructureDependencies(modules, completedSelection);
+
+  if (getOptionIndex(completedSelection, 'storage') >= 1 && !hasAnyExternalSystem(completedSelection)) {
+    completedSelection.storage = 0;
+  }
+
+  return normalizeSelection(modules, completedSelection);
+}
+
+function isInfrastructureValidSelection(modules, selection = {}) {
+  const normalizedSelection = normalizeSelection(modules, selection);
+  const processorIndex = getOptionIndex(normalizedSelection, 'processor');
+  const memoryIndex = getOptionIndex(normalizedSelection, 'memory');
+  const ioIndex = getOptionIndex(normalizedSelection, 'storage');
+  const managementIndex = getOptionIndex(normalizedSelection, 'network');
+  const securityIndex = getOptionIndex(normalizedSelection, 'security');
+  const coolingIndex = getOptionIndex(normalizedSelection, 'cooling');
+  const externalDASDIndex = getOptionIndex(normalizedSelection, 'externalDASD', -1);
+  const tapeIndex = getOptionIndex(normalizedSelection, 'tapeBackup', -1);
+  const cyberIndex = getOptionIndex(normalizedSelection, 'cyberVault', -1);
+
+  if (ioIndex >= 1 && !hasAnyExternalSystem(normalizedSelection)) {
+    return false;
+  }
+
+  if (processorIndex === 2 && coolingIndex < 2) {
+    return false;
+  }
+
+  if (memoryIndex === 2 && processorIndex === 0) {
+    return false;
+  }
+
+  if (processorIndex === 1 && memoryIndex >= 2 && coolingIndex === 0) {
+    return false;
+  }
+
+  if (externalDASDIndex >= 0 && ioIndex < 1) {
+    return false;
+  }
+
+  if (externalDASDIndex >= 1 && ioIndex < 2) {
+    return false;
+  }
+
+  if (tapeIndex >= 0 && (ioIndex < 1 || managementIndex < 2)) {
+    return false;
+  }
+
+  if (cyberIndex >= 0 && externalDASDIndex < 0 && tapeIndex < 0) {
+    return false;
+  }
+
+  if (cyberIndex >= 0 && (ioIndex < 2 || managementIndex < 2 || securityIndex < 2)) {
+    return false;
+  }
+
+  if (calculateSelectionMetric(modules, normalizedSelection, 'lpars') >= 180 && managementIndex < 2) {
+    return false;
+  }
+
+  return true;
+}
+
+function getSelectionKey(selection) {
+  return Object.keys(selection)
+    .sort()
+    .map((moduleId) => `${moduleId}:${selection[moduleId]}`)
+    .join('|');
+}
+
+function buildRuleAwareCandidateList(modules, text = '') {
+  const seen = new Set();
+
+  return enumerateSelections(modules)
+    .map((candidate) => completeInfrastructureSelection(modules, candidate, text))
+    .filter((candidate) => isInfrastructureValidSelection(modules, candidate))
+    .filter((candidate) => {
+      const key = getSelectionKey(candidate);
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
 function getLastSuggestedSelection(messages = [], modules = []) {
   const message = [...messages]
     .reverse()
@@ -317,6 +593,11 @@ function scoreSelection(modules, selection, text, budget, workload, budgetMode =
   const externalDASDIndex = getOptionIndex(selection, 'externalDASD', -1);
   const tapeBackupIndex = getOptionIndex(selection, 'tapeBackup', -1);
   const cyberVaultIndex = getOptionIndex(selection, 'cyberVault', -1);
+
+  if (!isInfrastructureValidSelection(modules, selection)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
   let score = 0;
 
   if (budget) {
@@ -499,8 +780,14 @@ function getOptionOrdinal(index) {
   return optionOrdinals[index] ?? `${index + 1}.`;
 }
 
-function findLowestCostSelection(modules) {
-  return enumerateSelections(modules).reduce((best, candidate) => (
+function findLowestCostSelection(modules, text = '') {
+  const candidates = buildRuleAwareCandidateList(modules, text);
+
+  if (candidates.length === 0) {
+    return normalizeSelection(modules, {});
+  }
+
+  return candidates.reduce((best, candidate) => (
     calculateSelectionTotal(modules, candidate) < calculateSelectionTotal(modules, best) ? candidate : best
   ));
 }
@@ -535,13 +822,13 @@ function buildSuggestedConfiguration({ modules, messages }) {
   const budget = parseBudget(configurationText);
   const budgetMode = resolveBudgetMode(configurationText);
   const workload = extractWorkload(configurationText);
-  const candidates = enumerateSelections(modules);
+  const candidates = buildRuleAwareCandidateList(modules, configurationText);
   const eligibleCandidates = budget
     ? candidates.filter((candidate) => calculateSelectionTotal(modules, candidate) <= budget)
     : candidates;
 
   if (eligibleCandidates.length === 0) {
-    const lowestSelection = findLowestCostSelection(modules);
+    const lowestSelection = findLowestCostSelection(modules, configurationText);
 
     return {
       budget,
@@ -577,7 +864,7 @@ function formatSuggestedConfiguration(suggestion) {
 }
 
 function createSuggestionFromSelection({ budget = null, budgetMode = 'fixed', modules, selection, workload }) {
-  const normalizedSelection = normalizeSelection(modules, selection);
+  const normalizedSelection = completeInfrastructureSelection(modules, selection);
 
   return {
     budget,
@@ -610,8 +897,10 @@ function describeSuggestionReason(suggestion) {
   const memory = suggestion.items.find((item) => item.moduleId === 'memory')?.optionName;
   const io = suggestion.items.find((item) => item.moduleId === 'storage')?.optionName;
   const security = suggestion.items.find((item) => item.moduleId === 'security')?.optionName;
-  const externalStorage = suggestion.items.find((item) => item.moduleId === 'externalDASD')?.optionName;
-  const network = externalStorage ? `${io}; External DASD: ${externalStorage}` : io;
+  const externalSystems = suggestion.items
+    .filter((item) => ['externalDASD', 'tapeBackup', 'cyberVault'].includes(item.moduleId))
+    .map((item) => item.optionName);
+  const network = externalSystems.length ? `${io}; външни системи: ${externalSystems.join(', ')}` : io;
   const workloadText = {
     low: 'ниска натовареност',
     medium: 'средна натовареност',
@@ -678,8 +967,11 @@ function buildAdjustedConfiguration({ messages, modules, selection }) {
     return null;
   }
 
-  const baseSelection = lastSuggestedSelection
+  const rawBaseSelection = lastSuggestedSelection
     ?? (isSelectionCompleteForModules(modules, selection) ? normalizeSelection(modules, selection) : null);
+  const baseSelection = rawBaseSelection
+    ? completeInfrastructureSelection(modules, rawBaseSelection, configurationText)
+    : null;
 
   if (!baseSelection) {
     return {
@@ -697,7 +989,8 @@ function buildAdjustedConfiguration({ messages, modules, selection }) {
       : direction === 'stronger'
         ? Math.round(baseTotal * 1.35)
         : null);
-  const candidates = enumerateSelections(modules)
+  const allCandidates = buildRuleAwareCandidateList(modules, configurationText);
+  const candidates = allCandidates
     .filter((candidate) => {
       const total = calculateSelectionTotal(modules, candidate);
       const isSame = getSelectionChangeCount(modules, baseSelection, candidate) === 0;
@@ -722,7 +1015,7 @@ function buildAdjustedConfiguration({ messages, modules, selection }) {
     });
   const fallbackCandidates = candidates.length
     ? candidates
-    : enumerateSelections(modules).filter((candidate) => {
+    : allCandidates.filter((candidate) => {
       const total = calculateSelectionTotal(modules, candidate);
 
       if (direction === 'cheaper') {
@@ -821,15 +1114,14 @@ function buildAdjustedConfigurationReply(adjustment) {
 function findModuleByText(modules, text) {
   const normalized = String(text).toLowerCase();
   const aliases = [
-    ['externalDASD', /storage|dasd|disk|data|ds8900/],
-    ['cyberVault', /vault|disaster|recovery|dr|cyber/],
-    ['tapeBackup', /tape|backup|archive/],
+    ['externalDASD', /storage|dasd|disk|data|ds8900|данни|диск|съхран/],
+    ['cyberVault', /vault|disaster|recovery|dr|cyber|кибер|възстанов/],
+    ['tapeBackup', /tape|backup|archive|бекъп|архив|лента|резерв/],
     ['cooling', /cooling|liquid|heat exchanger|thermal/],
     ['network', /management|hmc|support element|monitoring|control/],
     ['processor', /cpu|процесор|generation|z15|z16|z17|telum/],
     ['memory', /ram|памет|memory|raim/],
-    ['storage', /storage|диск|данни|архив|ds8900|vault/],
-    ['network', /network|мреж|i\/o|io|ficon|roce|транзак/],
+    ['storage', /storage|диск|данни|архив|ds8900|vault|network|мреж|i\/o|io|ficon|roce|транзак/],
     ['security', /security|сигур|crypto|крипто|защит|quantum/],
     ['power', /power|ток|енерг|cooling|охлаж|liquid/],
   ];
@@ -932,13 +1224,13 @@ function getModuleRoleDescription(module) {
       'Power & Cooling модулът описва как системата се захранва и охлажда, което влияе на експлоатационния разход и възможността за по-плътна конфигурация.',
   };
 
-  descriptions.storage = 'I/O connectivity модулите определят OSA, FICON, Fibre Channel и high-throughput fabric връзките към външни системи.';
+  descriptions.storage = 'I/O connectivity модулите определят OSA, FICON, Fibre Channel и high-throughput fabric връзките към външни системи. FICON/SAN изборите изискват поне една външна система като External DASD, Tape Library или Cyber Vault.';
   descriptions.network = 'Management & Control покрива HMC, Support Elements, monitoring и operational manageability.';
   descriptions.power = 'Power инфраструктурата покрива redundant power, battery support и shutdown protection в CPC frame.';
   descriptions.cooling = 'Cooling инфраструктурата контролира thermal headroom, енергийната ефективност и максималната поддържана производителност.';
-  descriptions.externalDASD = 'External DASD storage е отделен storage cabinet, свързан чрез FICON / SAN, а не вътрешен CPC drawer.';
-  descriptions.tapeBackup = 'Tape Library е опционална външна система за backup и retention workflows.';
-  descriptions.cyberVault = 'Cyber Vault е опционална външна recovery и cyber-resilience система.';
+  descriptions.externalDASD = 'External DASD storage е отделен storage cabinet, свързан чрез FICON / SAN, а не вътрешен CPC drawer. Ако се избере по-голям DASD капацитет, конфигурацията трябва да използва Enterprise I/O Fabric.';
+  descriptions.tapeBackup = 'Tape Library е опционална външна система за backup и retention workflows. Тя изисква FICON connectivity и Advanced Monitoring & Control.';
+  descriptions.cyberVault = 'Cyber Vault е опционална външна recovery и cyber-resilience система. Тя изисква External DASD или Tape Library като източник за recovery данни, плюс Enterprise I/O Fabric, Advanced Monitoring & Control и Quantum-Safe Security Suite.';
 
   return descriptions[module.id] ?? 'Този модул участва в цялостната IBM Z конфигурация и влияе на капацитета, цената и приложимостта на системата.';
 }
@@ -1171,6 +1463,7 @@ ${formatSuggestedConfiguration(suggestion)}
 Говори на български, учтиво, делово и ясно. Използвай обръщение на "Вие".
 Не използвай груб, прекалено фамилиарен, подигравателен или жаргонен тон.
 Използвай само модулите от каталога. Не измисляй компоненти, цени или имена.
+Инфраструктурни правила: FICON/SAN I/O изисква външна система. External DASD изисква FICON/Fibre Channel, а по-голям DASD изисква Enterprise I/O Fabric. Tape Library изисква FICON и Advanced Monitoring & Control. Cyber Vault изисква External DASD или Tape Library, както и Enterprise I/O Fabric, Advanced Monitoring & Control и Quantum-Safe Security Suite. AI-Accelerated CPC изисква Liquid-Cooling Ready. 12 TB RAIM Memory изисква Enterprise Processor Complex или AI-Accelerated CPC. Ако клиентът изрично каже "без DASD", "без Tape" или "без външни системи", спазвай това ограничение; при "без външни системи" използвай basic OSA/I/O и не добавяй External DASD, Tape Library или Cyber Vault.
 Ако липсват важни данни, задай до 2 кратки уточняващи въпроса.
 Когато предлагаш примерна конфигурация, задължително използвай този формат:
 Примерна конфигурация:

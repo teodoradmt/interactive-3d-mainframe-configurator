@@ -28,7 +28,11 @@ import {
   saveUserConfiguration,
   updateUserProfile,
 } from './mongoStore.js';
-import { generateAiRecommendation, generateMainframeChatReply } from './ollamaClient.js';
+import {
+  completeInfrastructureSelection,
+  generateAiRecommendation,
+  generateMainframeChatReply,
+} from './ollamaClient.js';
 
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 3001);
@@ -593,8 +597,18 @@ const server = http.createServer(async (request, response) => {
         modules,
         selection,
       });
+      const suggestedSelection = chatReply.suggestedSelection
+        ? completeInfrastructureSelection(
+            modules,
+            chatReply.suggestedSelection,
+            messages.map((message) => message.content ?? '').join('\n'),
+          )
+        : null;
 
-      sendJson(response, 200, chatReply);
+      sendJson(response, 200, {
+        ...chatReply,
+        suggestedSelection,
+      });
       return;
     }
 

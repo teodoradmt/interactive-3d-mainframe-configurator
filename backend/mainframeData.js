@@ -3,7 +3,7 @@ export const modules = [
     id: 'processor',
     category: 'cpc',
     required: true,
-    title: 'CPC / Processor Complex',
+    title: 'CPC/Processor Complex',
     short: 'CPC drawer',
     options: [
       {
@@ -53,7 +53,7 @@ export const modules = [
         spec: 'Базова RAIM memory с основен LPAR капацитет',
         price: 160000,
         ram: 1024,
-        lpars: 20,
+        lpars: 20, 
         consolidationScore: 30,
         watts: 0.9,
       },
@@ -118,7 +118,7 @@ export const modules = [
     category: 'cpc',
     required: true,
     title: 'Management & Control',
-    short: 'Management / SE',
+    short: 'Management/SE',
     options: [
       {
         name: 'Basic Management',

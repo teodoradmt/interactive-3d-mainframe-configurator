@@ -98,14 +98,14 @@ export function FrameConfigurationPanel({
             <div className="frame-status-grid">
               <div>
                 <span>Текущ frame</span>
-                <strong>{isAutoSelected ? `Авто: ${effectiveFrame.name}` : effectiveFrame.name}</strong>
+                <strong>{isAutoSelected ? `Auto: ${effectiveFrame.name}` : effectiveFrame.name}</strong>
               </div>
               <div>
                 <span>Препоръчан frame</span>
                 <strong>{frameEvaluation.recommendedFrame.name}</strong>
                 {shouldOfferAutoFrameSwitch ? (
                   <button className="frame-apply-button" onClick={() => onSelectFrame(FRAME_AUTO_ID)} type="button">
-                    Смени на Авто
+                    Смени на Auto
                   </button>
                 ) : !frameEvaluation.isRecommendedApplied && (
                   <button className="frame-apply-button" onClick={onApplyRecommendedFrame} type="button">

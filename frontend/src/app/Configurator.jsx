@@ -12,6 +12,7 @@ import { SaveConfigurationPage } from '../components/SaveConfigurationPage.jsx';
 import { SummaryPanel } from '../components/SummaryPanel.jsx';
 import { getMainframeDesign, mainframeDesigns } from '../config/mainframeDesigns.js';
 import {
+  completeInfrastructureSelection,
   FRAME_AUTO_ID,
   evaluateFrameConfiguration,
   getFrameConfiguration,
@@ -69,14 +70,6 @@ function getSourceSelectionValue(sourceSelection, module) {
 
   if (module.id === 'cooling' && sourceSelection.cooling === undefined) {
     return sourceSelection.power;
-  }
-
-  if (
-    module.id === 'externalDASD'
-    && sourceSelection.externalDASD === undefined
-    && sourceSelection.cooling === undefined
-  ) {
-    return sourceSelection.storage;
   }
 
   return sourceSelection[module.id];
@@ -325,7 +318,7 @@ export function Configurator() {
       }
     });
 
-    return nextSelection;
+    return completeInfrastructureSelection(modules, nextSelection);
   };
 
   const applySelectionGradually = async (sourceSelection) => {
