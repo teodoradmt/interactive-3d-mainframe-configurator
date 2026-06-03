@@ -25,7 +25,7 @@ function ModuleCard({
       <button className="module-button" onClick={() => setActiveModule(module.id)} type="button">
         <Icon size={19} />
         <span>{module.title}</span>
-        {isExternalModule(module) && <small>Опционално</small>}
+        {isExternalModule(module) && <small>Optional</small>}
         {isComplete && <Check aria-hidden="true" size={17} />}
       </button>
 
@@ -37,8 +37,8 @@ function ModuleCard({
             <button
               aria-label={
                 isSelected
-                  ? `${option.name}, избрано. Натиснете, за да премахнете избора.`
-                  : `${option.name}. Натиснете, за да изберете.`
+                  ? `${option.name}, selected. Press to remove the selection.`
+                  : `${option.name}. Press to select.`
               }
               aria-pressed={isSelected}
               className={`option-choice ${isSelected ? 'selected' : ''}`}
@@ -77,17 +77,17 @@ export function ModuleConfigurationPanel({
   return (
     <>
       <div className="panel-head">
-        <h2>{isExternalOnly ? 'Външни системи' : 'Конфигурация'}</h2>
+        <h2>{isExternalOnly ? 'External systems' : 'Configuration'}</h2>
         <div className="panel-head-actions">
           <span>
             {isExternalOnly
-              ? `${selectedExternalCount}/${externalModules.length || 0} опционални`
+              ? `${selectedExternalCount}/${externalModules.length || 0} optional`
               : `${selectedCount}/${cpcModules.length || 0} CPC`}
           </span>
           {!isExternalOnly && onSaveConfiguration && (
             <button className="config-save-action" onClick={onSaveConfiguration} type="button">
               <Save size={16} />
-              Запази
+              Save
             </button>
           )}
         </div>
@@ -96,7 +96,7 @@ export function ModuleConfigurationPanel({
       <div className="module-list">
         {showCpcModules && (
           <>
-            <div className="module-section-title">В CPC</div>
+            <div className="module-section-title">CPC modules</div>
             {cpcModules.map((module) => (
               <ModuleCard
                 activeModule={activeModule}
@@ -112,7 +112,7 @@ export function ModuleConfigurationPanel({
 
         {showExternalModules && externalModules.length > 0 && (
           <>
-            <div className="module-section-title external">Опционални външни системи</div>
+            <div className="module-section-title external">Optional external systems</div>
             {externalModules.map((module) => (
               <ModuleCard
                 activeModule={activeModule}

@@ -8,7 +8,7 @@ export const modules = [
     options: [
       {
         name: 'Entry Processor Complex',
-        spec: 'Базов CPC drawer за умерена консолидация и Linux работни натоварвания',
+        spec: 'Base CPC module for Linux environments and medium-load enterprise systems',
         price: 420000,
         cpu: 85000,
         accelerator: 8,
@@ -19,7 +19,7 @@ export const modules = [
       },
       {
         name: 'Enterprise Processor Complex',
-        spec: 'Enterprise CPC drawer за висока плътност на транзакциите и смесени работни натоварвания',
+        spec: 'Enterprise CPC drawer for high transaction density and mixed workloads',
         price: 980000,
         cpu: 125000,
         accelerator: 26,
@@ -30,7 +30,7 @@ export const modules = [
       },
       {
         name: 'AI-Accelerated CPC',
-        spec: 'AI-accelerated CPC drawer с максимален demo капацитет и accelerator оценка',
+        spec: 'AI-accelerated CPC configuration with maximum compute capacity',
         price: 1760000,
         cpu: 175000,
         accelerator: 54,
@@ -50,7 +50,7 @@ export const modules = [
     options: [
       {
         name: '1 TB RAIM Memory',
-        spec: 'Базова RAIM memory с основен LPAR капацитет',
+        spec: 'Base RAIM memory with core LPAR capacity',
         price: 160000,
         ram: 1024,
         lpars: 20, 
@@ -59,7 +59,7 @@ export const modules = [
       },
       {
         name: '4 TB RAIM Memory',
-        spec: 'Продукционна RAIM memory за LPAR консолидация',
+        spec: 'Production RAIM memory for LPAR consolidation',
         price: 410000,
         ram: 4096,
         lpars: 60,
@@ -68,7 +68,7 @@ export const modules = [
       },
       {
         name: '12 TB RAIM Memory',
-        spec: 'Голямо RAIM memory ниво за плътни in-memory работни натоварвания',
+        spec: 'High-capacity memory expansion for large in-memory workloads',
         price: 930000,
         ram: 12288,
         lpars: 120,
@@ -86,7 +86,7 @@ export const modules = [
     options: [
       {
         name: 'Basic OSA Network',
-        spec: 'Базова OSA свързаност без отделен external DASD fabric',
+        spec: 'Basic OSA connectivity without a dedicated external DASD fabric',
         price: 130000,
         io: 40,
         externalDASDSupport: false,
@@ -95,7 +95,7 @@ export const modules = [
       },
       {
         name: 'FICON + Fibre Channel',
-        spec: 'FICON/SAN връзки за external DASD и Tape Library',
+        spec: 'FICON/SAN links for external DASD and Tape Library',
         price: 290000,
         io: 140,
         externalDASDSupport: true,
@@ -104,7 +104,7 @@ export const modules = [
       },
       {
         name: 'Enterprise I/O Fabric',
-        spec: 'I/O fabric с висока пропускателност за големи external storage топологии',
+        spec: 'High-throughput I/O fabric for large external storage topologies',
         price: 680000,
         io: 400,
         externalDASDSupport: true,
@@ -122,7 +122,7 @@ export const modules = [
     options: [
       {
         name: 'Basic Management',
-        spec: 'Базов HMC и управление на support element',
+        spec: 'Basic HMC and Support Element management',
         price: 85000,
         management: 35,
         redundancy: 1,
@@ -131,7 +131,7 @@ export const modules = [
       },
       {
         name: 'Redundant Support Elements',
-        spec: 'Резервиран SE/HMC control path за продукционни операции',
+        spec: 'Redundant SE/HMC control path for production operations',
         price: 190000,
         management: 65,
         redundancy: 2,
@@ -140,7 +140,7 @@ export const modules = [
       },
       {
         name: 'Advanced Monitoring & Control',
-        spec: 'Разширен monitoring, control hubs и operational telemetry',
+        spec: 'Advanced monitoring, control hubs, and operational telemetry',
         price: 360000,
         management: 92,
         redundancy: 3,
@@ -158,7 +158,7 @@ export const modules = [
     options: [
       {
         name: 'Standard Secure Boot',
-        spec: 'Secure boot и базова защита на платформата',
+        spec: 'Secure boot and baseline platform protection',
         price: 70000,
         security: 1,
         compliance: 30,
@@ -166,7 +166,7 @@ export const modules = [
       },
       {
         name: 'Crypto Express',
-        spec: 'Hardware crypto acceleration и поддръжка на pervasive encryption',
+        spec: 'Hardware crypto acceleration and pervasive encryption support',
         price: 210000,
         security: 2,
         compliance: 68,
@@ -174,7 +174,7 @@ export const modules = [
       },
       {
         name: 'Quantum-Safe Security Suite',
-        spec: 'Quantum-safe security posture с AI-assisted protection оценка',
+        spec: 'Quantum-safe security posture with AI-assisted protection scoring',
         price: 440000,
         security: 3,
         compliance: 95,
@@ -192,7 +192,7 @@ export const modules = [
     options: [
       {
         name: 'Standard Redundant Power',
-        spec: 'Стандартни резервирани power feeds за работа на CPC frame',
+        spec: 'Standard redundant power feeds for CPC frame operation',
         price: 90000,
         uptimeScore: 45,
         shutdownProtection: 35,
@@ -200,7 +200,7 @@ export const modules = [
       },
       {
         name: 'Internal Battery Feature',
-        spec: 'Internal battery feature за защита при controlled shutdown',
+        spec: 'Internal battery feature for controlled shutdown protection',
         price: 180000,
         uptimeScore: 68,
         shutdownProtection: 72,
@@ -208,7 +208,7 @@ export const modules = [
       },
       {
         name: 'High-Availability Power',
-        spec: 'High-availability internal power design за критични среди',
+        spec: 'High-availability internal power design for critical environments',
         price: 330000,
         uptimeScore: 92,
         shutdownProtection: 95,
@@ -225,7 +225,7 @@ export const modules = [
     options: [
       {
         name: 'Air-Cooled Frame',
-        spec: 'Стандартен air-cooled CPC frame',
+        spec: 'Standard air-cooled CPC frame',
         price: 90000,
         cooling: 1,
         thermalScore: 38,
@@ -235,7 +235,7 @@ export const modules = [
       },
       {
         name: 'Rear Door Heat Exchanger',
-        spec: 'Rear door heat exchanger за datacenter cooling с по-висока плътност',
+        spec: 'Rear door heat exchanger for higher-density datacenter cooling',
         price: 180000,
         cooling: 2,
         thermalScore: 70,
@@ -245,7 +245,7 @@ export const modules = [
       },
       {
         name: 'Liquid-Cooling Ready',
-        spec: 'Liquid-cooling-ready frame за максимална performance поддръжка',
+        spec: 'Liquid-cooling-ready frame for maximum performance support',
         price: 360000,
         cooling: 3,
         thermalScore: 94,
@@ -265,21 +265,21 @@ export const modules = [
     options: [
       {
         name: 'DASD Array 120 TB',
-        spec: 'External DASD array, свързан чрез FICON / SAN',
+        spec: 'External DASD array connected through FICON / SAN',
         price: 210000,
         storage: 120,
         watts: 1.2,
       },
       {
         name: 'Flash Enterprise Storage 640 TB',
-        spec: 'Високопроизводителен external flash storage cabinet',
+        spec: 'High-performance external flash storage cabinet',
         price: 520000,
         storage: 640,
         watts: 3.4,
       },
       {
         name: '2 PB Enterprise DASD',
-        spec: 'Голям external DASD cabinet за enterprise data среди',
+        spec: 'Large external DASD cabinet for enterprise data environments',
         price: 1240000,
         storage: 2048,
         watts: 7.8,
@@ -296,21 +296,21 @@ export const modules = [
     options: [
       {
         name: 'Entry Tape Library',
-        spec: 'External tape backup за малки retention набори',
+        spec: 'External tape backup for small retention sets',
         price: 120000,
         backupCapacity: 250,
         watts: 0.8,
       },
       {
         name: 'Enterprise Tape Library',
-        spec: 'External tape backup с автоматизирано media handling',
+        spec: 'External tape backup with automated media handling',
         price: 310000,
         backupCapacity: 900,
         watts: 1.8,
       },
       {
         name: 'Air-Gapped Tape Library',
-        spec: 'Air-gapped tape ниво за устойчиви backup процеси',
+        spec: 'Air-gapped tape tier for resilient backup processes',
         price: 620000,
         backupCapacity: 1800,
         watts: 3.2,
@@ -327,21 +327,21 @@ export const modules = [
     options: [
       {
         name: 'DR Replication Target',
-        spec: 'External recovery target за репликирани критични volumes',
+        spec: 'External recovery target for replicated critical volumes',
         price: 260000,
         recoveryScore: 45,
         watts: 1.1,
       },
       {
         name: 'Cyber Vault Appliance',
-        spec: 'Изолирано recovery copy ниво за cyber resilience',
+        spec: 'Isolated recovery copy tier for cyber resilience',
         price: 640000,
         recoveryScore: 72,
         watts: 2.8,
       },
       {
         name: 'Immutable Cyber Vault',
-        spec: 'Advanced immutable vault с бързи validation процеси',
+        spec: 'Advanced immutable vault with fast validation processes',
         price: 1180000,
         recoveryScore: 94,
         watts: 5.1,

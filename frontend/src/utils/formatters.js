@@ -17,7 +17,7 @@ export function formatOptionSpec(option) {
   }
 
   if (option.cpu) {
-    return `${number.format(option.cpu)} капацитетни единици`;
+    return `${number.format(option.cpu)} capacity units`;
   }
 
   if (option.ram) {
@@ -35,11 +35,11 @@ export function formatOptionSpec(option) {
   }
 
   if (option.security) {
-    return `Ниво ${option.security}`;
+    return `Level ${option.security}`;
   }
 
   if (option.cooling) {
-    return `Ниво ${option.cooling}`;
+    return `Level ${option.cooling}`;
   }
 
   return `${option.watts.toFixed(1)} kW`;
