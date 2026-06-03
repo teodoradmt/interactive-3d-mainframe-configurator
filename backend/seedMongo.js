@@ -1,11 +1,15 @@
 import './env.js';
-import { closeMongoConnection, seedDefaultModules } from './mongoStore.js';
+import { closeMongoConnection, seedDefaultGlossaryTerms, seedDefaultModules } from './mongoStore.js';
 
 try {
-  const result = await seedDefaultModules();
+  const modulesResult = await seedDefaultModules();
+  const glossaryResult = await seedDefaultGlossaryTerms();
 
   console.log(
-    `MongoDB seed complete. Matched: ${result.matchedCount}, modified: ${result.modifiedCount}, upserted: ${result.upsertedCount}.`,
+    `MongoDB modules seed complete. Matched: ${modulesResult.matchedCount}, modified: ${modulesResult.modifiedCount}, upserted: ${modulesResult.upsertedCount}.`,
+  );
+  console.log(
+    `MongoDB glossary seed complete. Matched: ${glossaryResult.matchedCount}, modified: ${glossaryResult.modifiedCount}, upserted: ${glossaryResult.upsertedCount}.`,
   );
 } catch (error) {
   console.error(`MongoDB seed failed: ${error.message}`);

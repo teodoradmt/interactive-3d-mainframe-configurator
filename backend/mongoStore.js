@@ -1,8 +1,10 @@
 import { MongoClient, ObjectId } from 'mongodb';
+import { glossaryTerms as defaultGlossaryTerms } from './glossaryData.js';
 import { modules as defaultModules } from './mainframeData.js';
 
 const mongodbUri = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017';
 const dbName = process.env.MONGODB_DB ?? 'Mainframe-ConfiguratorDB';
+const glossaryCollectionName = process.env.MONGODB_GLOSSARY_COLLECTION ?? 'glossaryTerms';
 const modulesCollectionName = process.env.MONGODB_MODULES_COLLECTION ?? 'modules';
 const usersCollectionName = process.env.MONGODB_USERS_COLLECTION ?? 'users';
 const sessionsCollectionName = process.env.MONGODB_SESSIONS_COLLECTION ?? 'sessions';
@@ -10,7 +12,8 @@ const configurationsCollectionName = process.env.MONGODB_CONFIGURATIONS_COLLECTI
 
 let client;
 let connectionPromise;
-let seedPromise;
+let glossarySeedPromise;
+let modulesSeedPromise;
 let accountIndexesPromise;
 let fallbackWarningShown = false;
 
@@ -27,6 +30,10 @@ function getClient() {
 
 async function getModulesCollection() {
   return getCollection(modulesCollectionName);
+}
+
+async function getGlossaryCollection() {
+  return getCollection(glossaryCollectionName);
 }
 
 async function getDatabase() {
@@ -127,6 +134,16 @@ function cloneModuleForMongo(module, order) {
   };
 }
 
+function cloneGlossaryTermForMongo(term, order) {
+  return {
+    category: term.category,
+    definition: term.definition,
+    id: term.id,
+    order,
+    term: term.term,
+  };
+}
+
 function stripMongoFields(module) {
   const { _id, order, ...plainModule } = module;
 
@@ -134,6 +151,12 @@ function stripMongoFields(module) {
     ...plainModule,
     options: plainModule.options.map(({ client: _client, ...option }) => option),
   };
+}
+
+function stripGlossaryMongoFields(term) {
+  const { _id, order, ...plainTerm } = term;
+
+  return plainTerm;
 }
 
 function normalizeCatalogValue(value) {
@@ -209,8 +232,25 @@ async function writeDefaultModules(collection) {
   );
 }
 
+async function writeDefaultGlossaryTerms(collection) {
+  await createIndexes(collection);
+  await collection.deleteMany({
+    id: { $nin: defaultGlossaryTerms.map((term) => term.id) },
+  });
+
+  return collection.bulkWrite(
+    defaultGlossaryTerms.map((term, index) => ({
+      replaceOne: {
+        filter: { id: term.id },
+        replacement: cloneGlossaryTermForMongo(term, index),
+        upsert: true,
+      },
+    })),
+  );
+}
+
 async function ensureModulesSeeded(collection) {
-  seedPromise ??= (async () => {
+  modulesSeedPromise ??= (async () => {
     const storedModules = await collection
       .find({})
       .toArray();
@@ -231,7 +271,32 @@ async function ensureModulesSeeded(collection) {
     }
   })();
 
-  return seedPromise;
+  return modulesSeedPromise;
+}
+
+async function ensureGlossaryTermsSeeded(collection) {
+  glossarySeedPromise ??= (async () => {
+    const storedTerms = await collection
+      .find({})
+      .toArray();
+    const expectedIds = new Set(defaultGlossaryTerms.map((term) => term.id));
+    const expectedTermsById = new Map(
+      defaultGlossaryTerms.map((term, index) => [term.id, cloneGlossaryTermForMongo(term, index)]),
+    );
+    const isGlossaryCurrent =
+      storedTerms.length === expectedIds.size
+      && storedTerms.every((term) => {
+        const expectedTerm = expectedTermsById.get(term.id);
+
+        return expectedTerm && areCatalogValuesEqual(term, expectedTerm);
+      });
+
+    if (!isGlossaryCurrent) {
+      await writeDefaultGlossaryTerms(collection);
+    }
+  })();
+
+  return glossarySeedPromise;
 }
 
 function warnAboutFallback(error) {
@@ -273,15 +338,40 @@ export async function getModules() {
     return storedModules.map(stripMongoFields);
   } catch (error) {
     connectionPromise = undefined;
-    seedPromise = undefined;
+    modulesSeedPromise = undefined;
     warnAboutFallback(error);
     return defaultModules;
+  }
+}
+
+export async function getGlossaryTerms() {
+  try {
+    const collection = await getGlossaryCollection();
+    await ensureGlossaryTermsSeeded(collection);
+
+    const storedTerms = await collection
+      .find({})
+      .sort({ order: 1, id: 1 })
+      .toArray();
+
+    fallbackWarningShown = false;
+    return storedTerms.map(stripGlossaryMongoFields);
+  } catch (error) {
+    connectionPromise = undefined;
+    glossarySeedPromise = undefined;
+    warnAboutFallback(error);
+    return defaultGlossaryTerms;
   }
 }
 
 export async function seedDefaultModules() {
   const collection = await getModulesCollection();
   return writeDefaultModules(collection);
+}
+
+export async function seedDefaultGlossaryTerms() {
+  const collection = await getGlossaryCollection();
+  return writeDefaultGlossaryTerms(collection);
 }
 
 export async function createUser({
@@ -522,13 +612,17 @@ export async function getDatabaseStatus() {
 
     await database.command({ ping: 1 });
     await database.collection(modulesCollectionName).estimatedDocumentCount();
+    await database.collection(glossaryCollectionName).estimatedDocumentCount();
 
     return {
       ok: true,
       type: 'mongodb',
       uri: redactMongoUri(mongodbUri),
       database: dbName,
-      collection: modulesCollectionName,
+      collections: {
+        glossary: glossaryCollectionName,
+        modules: modulesCollectionName,
+      },
     };
   } catch (error) {
     connectionPromise = undefined;
@@ -548,6 +642,7 @@ export async function closeMongoConnection() {
 
   client = undefined;
   connectionPromise = undefined;
-  seedPromise = undefined;
+  glossarySeedPromise = undefined;
+  modulesSeedPromise = undefined;
   accountIndexesPromise = undefined;
 }

@@ -21,6 +21,7 @@ import {
   findUserByEmail,
   findUserById,
   getDatabaseStatus,
+  getGlossaryTerms,
   getModules,
   getPublicUserById,
   getUserConfigurationById,
@@ -479,6 +480,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && requestUrl.pathname === '/api/modules') {
       const modules = await getModules();
       sendJson(response, 200, modules);
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/glossary-terms') {
+      const glossaryTerms = await getGlossaryTerms();
+      sendJson(response, 200, glossaryTerms);
       return;
     }
 

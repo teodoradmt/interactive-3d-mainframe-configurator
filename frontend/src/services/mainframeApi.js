@@ -37,6 +37,10 @@ export function fetchModules() {
   return fetchJson('/api/modules');
 }
 
+export function fetchGlossaryTerms() {
+  return fetchJson('/api/glossary-terms');
+}
+
 export function fetchEstimate(selection, signal) {
   return fetchJson('/api/estimate', {
     method: 'POST',
