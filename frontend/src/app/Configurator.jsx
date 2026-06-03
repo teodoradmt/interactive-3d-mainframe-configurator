@@ -5,6 +5,7 @@ import { MainframeChat } from '../components/MainframeChat.jsx';
 import { MainframeBackgroundPanel } from '../components/MainframeBackgroundPanel.jsx';
 import { MainframeDesignPanel } from '../components/MainframeDesignPanel.jsx';
 import { FrameConfigurationPanel } from '../components/FrameConfigurationPanel.jsx';
+import { GlossaryMenu } from '../components/GlossaryMenu.jsx';
 import { ModuleConfigurationPanel } from '../components/ModuleConfigurationPanel.jsx';
 import { ProfileButton } from '../components/ProfileButton.jsx';
 import { ProfilePage } from '../components/ProfilePage.jsx';
@@ -520,6 +521,7 @@ export function Configurator() {
               onSelectFrame={setSelectedFrameId}
               selectedFrameId={selectedFrameId}
             />
+            <GlossaryMenu />
             <div className="title-profile-group">
               <ProfileButton
                 currentUser={currentUser}

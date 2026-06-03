@@ -136,6 +136,32 @@ function stripMongoFields(module) {
   };
 }
 
+function normalizeCatalogValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeCatalogValue);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key, entryValue]) => (
+          key !== '_id'
+          && key !== 'order'
+          && entryValue !== undefined
+          && entryValue !== null
+        ))
+        .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
+        .map(([key, entryValue]) => [key, normalizeCatalogValue(entryValue)]),
+    );
+  }
+
+  return value;
+}
+
+function areCatalogValuesEqual(firstValue, secondValue) {
+  return JSON.stringify(normalizeCatalogValue(firstValue)) === JSON.stringify(normalizeCatalogValue(secondValue));
+}
+
 async function createIndexes(collection) {
   await collection.createIndex({ id: 1 }, { unique: true });
   await collection.createIndex({ order: 1 });
@@ -187,22 +213,17 @@ async function ensureModulesSeeded(collection) {
   seedPromise ??= (async () => {
     const storedModules = await collection
       .find({})
-      .project({ category: 1, id: 1, options: 1, required: 1, short: 1, title: 1 })
       .toArray();
     const expectedIds = new Set(defaultModules.map((module) => module.id));
-    const expectedModulesById = new Map(defaultModules.map((module) => [module.id, module]));
+    const expectedModulesById = new Map(
+      defaultModules.map((module, index) => [module.id, cloneModuleForMongo(module, index)]),
+    );
     const isCatalogCurrent =
       storedModules.length === expectedIds.size
       && storedModules.every((module) => {
         const expectedModule = expectedModulesById.get(module.id);
 
-        return expectedModule
-          && module.title === expectedModule.title
-          && module.short === expectedModule.short
-          && module.category === expectedModule.category
-          && module.required === expectedModule.required
-          && module.options?.length === expectedModule.options.length
-          && module.options.every((option, index) => option.name === expectedModule.options[index].name);
+        return expectedModule && areCatalogValuesEqual(module, expectedModule);
       });
 
     if (!isCatalogCurrent) {

@@ -1,5 +1,18 @@
 import { currency, number } from '../utils/formatters.js';
 
+const metricValueTranslations = new Map([
+  ['DASD recovery', 'DASD възстановяване'],
+  ['Invalid', 'Невалидна'],
+  ['Low', 'Ниска'],
+  ['None', 'Няма'],
+  ['Tape recovery', 'Tape възстановяване'],
+  ['Valid', 'Валидна'],
+]);
+
+function translateMetricValue(value) {
+  return metricValueTranslations.get(value) ?? value;
+}
+
 export function SummaryPanel({
   frameEvaluation,
   isComplete,
@@ -17,28 +30,28 @@ export function SummaryPanel({
 
   return (
     <div className="summary">
-      <h2>Assessment</h2>
+      <h2>Оценка</h2>
 
       {!isComplete ? (
-        <p className="summary-empty">Complete the CPC modules to view the assessment.</p>
+        <p className="summary-empty">Завърши CPC модулите, за да видиш оценката.</p>
       ) : (
         <>
-          <Metric label="Total price" value={currency.format(safeTotals.total)} />
-          <Metric label="Estimated consumption" value={`${safeTotals.kw.toFixed(1)} kW`} />
-          <Metric label="Monthly electricity cost" value={currency.format(safeTotals.monthlyCost)} />
-          <Metric label="CPC capacity score" value={`${number.format(frameMetrics.cpcCapacityScore ?? 0)}/100`} />
-          <Metric label="LPAR capacity" value={number.format(frameMetrics.lparCapacity ?? safeTotals.lpars ?? 0)} />
-          <Metric label="Memory capacity" value={`${number.format(frameMetrics.memoryCapacity ?? safeTotals.ram)} GB`} />
-          <Metric label="I/O throughput" value={`${number.format(frameMetrics.ioThroughput ?? safeTotals.io ?? 0)} GbE`} />
-          <Metric label="Storage readiness" value={`${number.format(frameMetrics.storageReadiness ?? 0)}/100`} />
-          <Metric label="Security score" value={`${number.format(frameMetrics.securityScore ?? 0)}/100`} />
-          <Metric label="Redundancy score" value={`${number.format(frameMetrics.redundancyScore ?? 0)}/100`} />
-          <Metric label="Cooling efficiency" value={`${number.format(frameMetrics.coolingEfficiency ?? 0)}/100`} />
-          <Metric label="Disaster Recovery level" value={frameMetrics.disasterRecoveryTier ?? 'None'} />
-          <Metric label="Expected availability" value={frameMetrics.estimatedAvailability ?? '99.40%'} />
-          <Metric label="Production readiness" value={frameMetrics.productionReadiness ?? 'Low'} />
-          <Metric label="Recommended frame" value={frameMetrics.recommendedFrameName ?? frameEvaluation?.recommendedFrame?.name ?? 'Z Frame'} />
-          <Metric label="Configuration validity" value={frameMetrics.configurationValidity ?? 'Valid'} />
+          <Metric label="Обща цена" value={currency.format(safeTotals.total)} />
+          <Metric label="Очаквана консумация" value={`${safeTotals.kw.toFixed(1)} kW`} />
+          <Metric label="Месечен разход за електроенергия" value={currency.format(safeTotals.monthlyCost)} />
+          <Metric label="CPC капацитет" value={`${number.format(frameMetrics.cpcCapacityScore ?? 0)}/100`} />
+          <Metric label="LPAR капацитет" value={number.format(frameMetrics.lparCapacity ?? safeTotals.lpars ?? 0)} />
+          <Metric label="Капацитет на паметта" value={`${number.format(frameMetrics.memoryCapacity ?? safeTotals.ram)} GB`} />
+          <Metric label="I/O пропускателност" value={`${number.format(frameMetrics.ioThroughput ?? safeTotals.io ?? 0)} GbE`} />
+          <Metric label="Storage готовност" value={`${number.format(frameMetrics.storageReadiness ?? 0)}/100`} />
+          <Metric label="Оценка на сигурността" value={`${number.format(frameMetrics.securityScore ?? 0)}/100`} />
+          <Metric label="Оценка на резервираност" value={`${number.format(frameMetrics.redundancyScore ?? 0)}/100`} />
+          <Metric label="Ефективност на охлаждането" value={`${number.format(frameMetrics.coolingEfficiency ?? 0)}/100`} />
+          <Metric label="Ниво на Disaster Recovery" value={translateMetricValue(frameMetrics.disasterRecoveryTier ?? 'None')} />
+          <Metric label="Очаквана наличност" value={frameMetrics.estimatedAvailability ?? '99.40%'} />
+          <Metric label="Production готовност" value={translateMetricValue(frameMetrics.productionReadiness ?? 'Low')} />
+          <Metric label="Препоръчан frame" value={frameMetrics.recommendedFrameName ?? frameEvaluation?.recommendedFrame?.name ?? 'Z Frame'} />
+          <Metric label="Статус на конфигурацията" value={translateMetricValue(frameMetrics.configurationValidity ?? 'Valid')} />
 
         </>
       )}
