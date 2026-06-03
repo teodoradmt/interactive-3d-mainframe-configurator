@@ -17,28 +17,28 @@ export function SummaryPanel({
 
   return (
     <div className="summary">
-      <h2>Оценка</h2>
+      <h2>Assessment</h2>
 
       {!isComplete ? (
-        <p className="summary-empty">Завършете CPC модулите, за да видите оценката.</p>
+        <p className="summary-empty">Complete the CPC modules to view the assessment.</p>
       ) : (
         <>
-          <Metric label="Обща цена" value={currency.format(safeTotals.total)} />
-          <Metric label="Ориентировъчна консумация" value={`${safeTotals.kw.toFixed(1)} kW`} />
-          <Metric label="Месечен разход за електроенергия" value={currency.format(safeTotals.monthlyCost)} />
-          <Metric label="CPC capacity оценка" value={`${number.format(frameMetrics.cpcCapacityScore ?? 0)}/100`} />
-          <Metric label="LPAR капацитет" value={number.format(frameMetrics.lparCapacity ?? safeTotals.lpars ?? 0)} />
-          <Metric label="Memory капацитет" value={`${number.format(frameMetrics.memoryCapacity ?? safeTotals.ram)} GB`} />
-          <Metric label="I/O пропускателност" value={`${number.format(frameMetrics.ioThroughput ?? safeTotals.io ?? 0)} GbE`} />
-          <Metric label="Storage готовност" value={`${number.format(frameMetrics.storageReadiness ?? 0)}/100`} />
-          <Metric label="Security оценка" value={`${number.format(frameMetrics.securityScore ?? 0)}/100`} />
-          <Metric label="Redundancy оценка" value={`${number.format(frameMetrics.redundancyScore ?? 0)}/100`} />
-          <Metric label="Cooling ефективност" value={`${number.format(frameMetrics.coolingEfficiency ?? 0)}/100`} />
-          <Metric label="Disaster Recovery ниво" value={frameMetrics.disasterRecoveryTier ?? 'Няма'} />
-          <Metric label="Очаквана availability" value={frameMetrics.estimatedAvailability ?? '99.40%'} />
-          <Metric label="Production готовност" value={frameMetrics.productionReadiness ?? 'Ниска'} />
-          <Metric label="Препоръчан frame" value={frameMetrics.recommendedFrameName ?? frameEvaluation?.recommendedFrame?.name ?? 'Z Frame'} />
-          <Metric label="Валидност на конфигурацията" value={frameMetrics.configurationValidity ?? 'Валидна'} />
+          <Metric label="Total price" value={currency.format(safeTotals.total)} />
+          <Metric label="Estimated consumption" value={`${safeTotals.kw.toFixed(1)} kW`} />
+          <Metric label="Monthly electricity cost" value={currency.format(safeTotals.monthlyCost)} />
+          <Metric label="CPC capacity score" value={`${number.format(frameMetrics.cpcCapacityScore ?? 0)}/100`} />
+          <Metric label="LPAR capacity" value={number.format(frameMetrics.lparCapacity ?? safeTotals.lpars ?? 0)} />
+          <Metric label="Memory capacity" value={`${number.format(frameMetrics.memoryCapacity ?? safeTotals.ram)} GB`} />
+          <Metric label="I/O throughput" value={`${number.format(frameMetrics.ioThroughput ?? safeTotals.io ?? 0)} GbE`} />
+          <Metric label="Storage readiness" value={`${number.format(frameMetrics.storageReadiness ?? 0)}/100`} />
+          <Metric label="Security score" value={`${number.format(frameMetrics.securityScore ?? 0)}/100`} />
+          <Metric label="Redundancy score" value={`${number.format(frameMetrics.redundancyScore ?? 0)}/100`} />
+          <Metric label="Cooling efficiency" value={`${number.format(frameMetrics.coolingEfficiency ?? 0)}/100`} />
+          <Metric label="Disaster Recovery level" value={frameMetrics.disasterRecoveryTier ?? 'None'} />
+          <Metric label="Expected availability" value={frameMetrics.estimatedAvailability ?? '99.40%'} />
+          <Metric label="Production readiness" value={frameMetrics.productionReadiness ?? 'Low'} />
+          <Metric label="Recommended frame" value={frameMetrics.recommendedFrameName ?? frameEvaluation?.recommendedFrame?.name ?? 'Z Frame'} />
+          <Metric label="Configuration validity" value={frameMetrics.configurationValidity ?? 'Valid'} />
 
         </>
       )}
