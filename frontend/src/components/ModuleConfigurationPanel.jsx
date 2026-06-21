@@ -87,7 +87,7 @@ export function ModuleConfigurationPanel({
           {!isExternalOnly && onSaveConfiguration && (
             <button className="config-save-action" onClick={onSaveConfiguration} type="button">
               <Save size={16} />
-              Save
+              Запази
             </button>
           )}
         </div>

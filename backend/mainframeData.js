@@ -3,7 +3,7 @@ export const modules = [
     id: 'processor',
     category: 'cpc',
     required: true,
-    title: 'CPC/Processor Complex',
+    title: 'Processor Complex',
     short: 'CPC drawer',
     options: [
       {

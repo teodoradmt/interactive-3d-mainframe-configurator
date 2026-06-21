@@ -102,7 +102,7 @@ export function GlossaryMenu() {
       {isOpen && (
         <section className="glossary-panel" id="glossary-panel">
           <div className="glossary-head">
-            <h2>Terms</h2>
+            <h2>Термини</h2>
             <span>{filteredTerms.length}/{glossaryTerms.length}</span>
           </div>
 
